@@ -7,7 +7,10 @@ const API_ENDPOINTS = {
   execute: `${API_BASE_URL}/api/execute`,
   validate: `${API_BASE_URL}/api/validate`,
   status: `${API_BASE_URL}/api/status`,
-  restart: `${API_BASE_URL}/api/restart`
+  restart: `${API_BASE_URL}/api/restart`,
+  aiAnalyze: `${API_BASE_URL}/api/ai/analyze`,
+  aiCheck: `${API_BASE_URL}/api/ai/check`,
+  aiSuggest: `${API_BASE_URL}/api/ai/suggest`
 };
 
 // 狀態資料結構
@@ -367,7 +370,7 @@ async function reconnectBackend() {
   return false;
 }
 
-// 保留原本的模擬執行函數作為AI檢查使用
+// 保留原本的模擬執行函數作為後備方案
 function simulatePythonRun(code) {
   // 簡易偵錯：引號不成對、未關閉括號
   const quoteCount = (code.match(/"/g) || []).length + (code.match(/'/g) || []).length;
@@ -394,69 +397,161 @@ function simulatePythonRun(code) {
   return outputs.join("\n");
 }
 
-// AI 檢查：比對預期輸出並給分
-function aiCheck() {
+// AI 檢查：使用真實的 Gemini API
+async function aiCheck() {
   stats.aiCheckCount++;
-  aiStatus.textContent = "分析中...";
+  aiStatus.textContent = "AI 分析中...";
   aiStatus.className = "text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-200";
 
-  setTimeout(() => {
+  try {
+    const code = getCode();
     let runText = "";
-    let ok = false;
+    
+    // 先嘗試執行程式碼獲取輸出
     try {
-      runText = simulatePythonRun(getCode());
-      const expected = expectedOutput.join("\n");
-      const similarity = compareStrings(expected, runText);
-      const score = Math.round(similarity * 100);
-      stats.totalScores.push(score);
-      if (score >= 85 && stats.completedQuestions === 0) {
-        stats.completedQuestions = 1; // 通關第一題
-      }
-      ok = score >= 85;
-
-      // 顯示 AI 分析
-      const list = document.getElementById('aiSuggestionList');
-      list.innerHTML = "";
-      const suggestions = [];
-      if (ok) {
-        suggestions.push("輸出與題目一致，做得很好！");
-        suggestions.push("下一步：嘗試使用變數將字串組裝後再輸出。");
-      } else {
-        suggestions.push("輸出與預期不完全一致，請檢查標點、空格與符號。");
-        suggestions.push("每一行需各自輸出一次，注意換行。");
-        // 顯示相異行
-        const exp = expectedOutput;
-        const got = runText.split("\n");
-        const maxLen = Math.max(exp.length, got.length);
-        for (let i=0; i<maxLen; i++) {
-          if ((exp[i]||"") !== (got[i]||"")) {
-            suggestions.push(`第 ${i+1} 行不同：預期「${exp[i]||"(空)"}」 / 實際「${got[i]||"(空)"}」`);
-          }
-        }
-      }
-      suggestions.forEach(s=>{
-        const li = document.createElement('li');
-        li.textContent = s;
-        document.getElementById('aiSuggestionList').appendChild(li);
+      const execResponse = await fetch(API_ENDPOINTS.execute, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',
+          'User-Agent': 'PythonDiagnosticPlatform'
+        },
+        body: JSON.stringify({ code: code })
       });
-
+      
+      const execResult = await execResponse.json();
+      if (execResult.success) {
+        runText = execResult.output || '';
+      } else {
+        runText = '執行錯誤: ' + (execResult.error || '未知錯誤');
+      }
     } catch (err) {
-      stats.errorCount++;
-      runText = "錯誤：" + err.message;
-      const li = document.createElement('li');
-      li.textContent = "偵測到語法錯誤：請檢查引號與括號。";
-      document.getElementById('aiSuggestionList').innerHTML = "";
-      document.getElementById('aiSuggestionList').appendChild(li);
+      console.error('執行失敗，使用模擬輸出:', err);
+      runText = simulatePythonRun(code);
     }
 
-    // 更新
+    // 呼叫 AI 分析 API
+    const response = await fetch(API_ENDPOINTS.aiAnalyze, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'PythonDiagnosticPlatform'
+      },
+      body: JSON.stringify({
+        code: code,
+        output: runText,
+        expected_output: expectedOutput.join("\n"),
+        question: "請撰寫一個 Python 程式，輸出以下三行文字：\nHello, Python!\n我正在學習基礎輸出\n這是第 1 題 ✅"
+      })
+    });
+
+    const result = await response.json();
+    
+    if (result.success && result.analysis) {
+      const analysis = result.analysis;
+      const score = analysis.score || 0;
+      
+      // 記錄分數
+      stats.totalScores.push(score);
+      
+      // 更新完成狀態
+      if (score >= 85 && stats.completedQuestions === 0) {
+        stats.completedQuestions = 1;
+      }
+      
+      // 顯示 AI 分析結果
+      const list = document.getElementById('aiSuggestionList');
+      list.innerHTML = "";
+      
+      // 添加總體評語
+      if (analysis.feedback) {
+        const feedbackDiv = document.createElement('div');
+        feedbackDiv.className = 'bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3';
+        feedbackDiv.innerHTML = `<strong>💬 AI 評語：</strong><br>${analysis.feedback}`;
+        document.getElementById('aiAnalysisBox').insertBefore(feedbackDiv, list);
+      }
+      
+      // 添加建議
+      if (analysis.suggestions && analysis.suggestions.length > 0) {
+        const suggestionTitle = document.createElement('div');
+        suggestionTitle.className = 'font-semibold text-gray-800 mb-2';
+        suggestionTitle.textContent = '💡 改進建議：';
+        list.appendChild(suggestionTitle);
+        
+        analysis.suggestions.forEach(s => {
+          const li = document.createElement('li');
+          li.textContent = s;
+          list.appendChild(li);
+        });
+      }
+      
+      // 添加錯誤提示
+      if (analysis.errors && analysis.errors.length > 0) {
+        const errorTitle = document.createElement('div');
+        errorTitle.className = 'font-semibold text-red-700 mt-3 mb-2';
+        errorTitle.textContent = '⚠️ 發現問題：';
+        list.appendChild(errorTitle);
+        
+        analysis.errors.forEach(e => {
+          const li = document.createElement('li');
+          li.className = 'text-red-600';
+          li.textContent = e;
+          list.appendChild(li);
+        });
+      }
+      
+      // 更新狀態
+      if (score >= 85) {
+        stats.successfulRuns++;
+      } else {
+        stats.errorCount++;
+      }
+      
+    } else {
+      throw new Error(result.error || 'AI 分析失敗');
+    }
+
+    // 更新顯示
     updateLearningProgress();
     updateStatsDisplay();
     weaknessAnalysis.analyzeWeaknesses();
 
-    aiStatus.textContent = "完成";
+    aiStatus.textContent = "分析完成 ✓";
     aiStatus.className = "text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200";
-  }, 400);
+    
+  } catch (err) {
+    console.error('AI 檢查錯誤:', err);
+    stats.errorCount++;
+    
+    // 顯示錯誤訊息
+    const list = document.getElementById('aiSuggestionList');
+    list.innerHTML = "";
+    const li = document.createElement('li');
+    li.className = 'text-red-600';
+    li.textContent = `AI 分析失敗: ${err.message}`;
+    list.appendChild(li);
+    
+    // 嘗試使用本地模擬分析作為後備
+    try {
+      const runText = simulatePythonRun(getCode());
+      const expected = expectedOutput.join("\n");
+      const similarity = compareStrings(expected, runText);
+      const score = Math.round(similarity * 100);
+      stats.totalScores.push(score);
+      
+      const backupLi = document.createElement('li');
+      backupLi.textContent = `使用本地分析：相似度 ${score}%`;
+      list.appendChild(backupLi);
+    } catch (e) {
+      console.error('本地分析也失敗:', e);
+    }
+    
+    updateStatsDisplay();
+    
+    aiStatus.textContent = "分析失敗";
+    aiStatus.className = "text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 border border-red-200";
+  }
 }
 
 // 簡易字串相似度（以行為主，逐行比對）
@@ -609,15 +704,70 @@ runBtn.addEventListener('click', (e) => { e.preventDefault(); runProgram(); });
 aiCheckBtn.addEventListener('click', (e) => { e.preventDefault(); aiCheck(); });
 saveBtn.addEventListener('click', (e) => { e.preventDefault(); saveCode(); });
 reconnectBtn.addEventListener('click', (e) => { e.preventDefault(); reconnectBackend(); });
-document.getElementById('manualAnalyzeBtn').addEventListener('click', (e)=>{
+
+// 手動分析按鈕 - 使用真實 AI 建議
+document.getElementById('manualAnalyzeBtn').addEventListener('click', async (e) => {
   e.preventDefault();
-  aiStatus.textContent = "手動分析中...";
+  aiStatus.textContent = "AI 深度分析中...";
   aiStatus.className = "text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-200";
-  setTimeout(()=>{
+  
+  try {
+    const code = getCode();
+    const statsData = {
+      run_count: stats.runCount,
+      error_count: stats.errorCount,
+      success_rate: stats.runCount ? Math.round((stats.successfulRuns / stats.runCount) * 100) : 0,
+      modifications: stats.codeModifications
+    };
+    
+    // 呼叫 AI 建議 API
+    const response = await fetch(API_ENDPOINTS.aiSuggest, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'PythonDiagnosticPlatform'
+      },
+      body: JSON.stringify({
+        code: code,
+        stats: statsData
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success && result.suggestions) {
+      const suggestions = result.suggestions;
+      
+      // 更新立即行動建議
+      const actionList = document.getElementById('actionList');
+      actionList.innerHTML = '';
+      if (suggestions.actions) {
+        suggestions.actions.forEach(action => {
+          const li = document.createElement('li');
+          li.textContent = action;
+          actionList.appendChild(li);
+        });
+      }
+      
+      // 也可以更新弱點分析
+      weaknessAnalysis.analyzeWeaknesses();
+      
+      aiStatus.textContent = "深度分析完成 ✓";
+      aiStatus.className = "text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200";
+    } else {
+      throw new Error(result.error || 'AI 建議失敗');
+    }
+    
+  } catch (err) {
+    console.error('AI 建議失敗:', err);
+    
+    // 使用本地分析作為後備
     weaknessAnalysis.analyzeWeaknesses();
-    aiStatus.textContent = "完成";
-    aiStatus.className = "text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200";
-  }, 300);
+    
+    aiStatus.textContent = "使用本地分析";
+    aiStatus.className = "text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200";
+  }
 });
 
 // 模型選擇提示（僅顯示狀態，無外部呼叫）
