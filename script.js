@@ -2,22 +2,12 @@
 let monacoEditor = null;
 
 // 後端API配置
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'https://karissa-unsiding-graphemically.ngrok-free.dev';
 const API_ENDPOINTS = {
   execute: `${API_BASE_URL}/api/execute`,
   validate: `${API_BASE_URL}/api/validate`,
   status: `${API_BASE_URL}/api/status`,
-  restart: `${API_BASE_URL}/api/restart`,
-  tabs: `${API_BASE_URL}/api/tabs`,
-  auto_start: `${API_BASE_URL}/api/auto_start`
-};
-
-// 後端啟動配置
-const BACKEND_CONFIG = {
-  pythonExecutable: 'python',
-  backendScript: '../backend/app_web.py',
-  maxStartupTime: 30000, // 30秒超時
-  retryInterval: 2000 // 2秒重試間隔
+  restart: `${API_BASE_URL}/api/restart`
 };
 
 // 狀態資料結構
@@ -234,8 +224,20 @@ function detectCodeModification() {
 async function checkBackendStatus() {
   try {
     const response = await fetch(API_ENDPOINTS.status, {
-      credentials: 'include'
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'PythonDiagnosticPlatform'
+      }
     });
+    
+    // 檢查回應是否為 JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      const text = await response.text();
+      console.error('後端回傳非 JSON 內容:', text.substring(0, 200));
+      throw new Error('後端回傳了 HTML 而非 JSON，可能是 ngrok 的攔截頁面。請檢查 ngrok 是否正確設定，或嘗試在瀏覽器中直接訪問: ' + API_ENDPOINTS.status);
+    }
+    
     const status = await response.json();
     
     // 更新界面狀態顯示
@@ -258,144 +260,78 @@ async function checkBackendStatus() {
     console.error('後端狀態檢查失敗:', err);
     const statusElement = document.getElementById('backendStatus');
     if (statusElement) {
-      statusElement.textContent = '連線錯誤';
-      statusElement.className = 'text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 border';
+      statusElement.textContent = 'ngrok 攔截';
+      statusElement.className = 'text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700 border';
+      statusElement.title = '點擊查看說明';
+      statusElement.style.cursor = 'pointer';
+      statusElement.onclick = () => showNgrokWarningModal();
     }
     return null;
   }
 }
 
-// 自動啟動後端
-async function startBackendAutomatically() {
-  console.log('🚀 正在自動啟動後端服務...');
+// 初始化後端連接
+async function initializeBackend() {
+  console.log('🔄 正在初始化後端連接...');
   
-  // 更新狀態顯示
-  const statusElement = document.getElementById('backendStatus');
-  if (statusElement) {
-    statusElement.textContent = '自動啟動中';
-    statusElement.className = 'text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 border';
-  }
-  
-  try {
-    // 嘗試通過後端的自動啟動端點來確認服務狀態
-    const response = await fetch(API_ENDPOINTS.auto_start, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'start' })
-    });
-    
-    if (response.ok) {
-      const result = await response.json();
-      console.log('✅ 後端服務響應正常:', result.message);
-      return await waitForBackendReady();
-    }
-  } catch (err) {
-    console.log('⚠️ 後端服務未運行，需要手動啟動');
-  }
-  
-  // 如果自動啟動失敗，顯示手動啟動提示
-  showManualStartupGuide();
-  return false;
+  // 檢查後端狀態
+  await checkBackendStatus();
 }
 
-// 等待後端準備就緒
-async function waitForBackendReady() {
-  const startTime = Date.now();
-  const statusElement = document.getElementById('backendStatus');
-  
-  while (Date.now() - startTime < BACKEND_CONFIG.maxStartupTime) {
-    try {
-      const status = await checkBackendStatus();
-      if (status && status.browser_ready) {
-        console.log('✅ 後端已準備就緒');
-        return true;
-      }
-    } catch (err) {
-      // 忽略連接錯誤，繼續等待
-    }
-    
-    // 更新狀態顯示
-    if (statusElement) {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      statusElement.textContent = `啟動中 ${elapsed}s`;
-    }
-    
-    // 等待後重試
-    await new Promise(resolve => setTimeout(resolve, BACKEND_CONFIG.retryInterval));
-  }
-  
-  console.log('⏰ 後端啟動超時');
-  return false;
-}
-
-// 顯示手動啟動指南
-function showManualStartupGuide() {
-  const statusElement = document.getElementById('backendStatus');
-  if (statusElement) {
-    statusElement.textContent = '需要手動啟動';
-    statusElement.className = 'text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700 border cursor-pointer';
-    statusElement.title = '點擊查看啟動指南';
-    statusElement.onclick = () => showStartupModal();
-  }
-}
-
-// 顯示啟動指南彈窗
-function showStartupModal() {
+// 顯示 ngrok 攔截警告
+function showNgrokWarningModal() {
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
   modal.innerHTML = `
-    <div class="bg-white rounded-lg p-6 max-w-lg mx-4 shadow-xl">
-      <h3 class="text-lg font-bold mb-4 text-gray-800">🚀 後端啟動指南</h3>
+    <div class="bg-white rounded-lg p-6 max-w-2xl mx-4 shadow-xl">
+      <h3 class="text-lg font-bold mb-4 text-gray-800">⚠️ ngrok 攔截問題</h3>
       <div class="space-y-4 text-sm text-gray-600">
-        <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
-          <p class="font-semibold text-blue-800 mb-2">💡 推薦方法（最簡單）：</p>
-          <p>雙擊專案目錄中的 <strong>start_backend.bat</strong> 或 <strong>start_backend.ps1</strong> 檔案</p>
-        </div>
-        
-        <div class="bg-gray-50 p-3 rounded-lg border">
-          <p class="font-semibold text-gray-800 mb-2">🔧 手動啟動方法：</p>
-          <ol class="list-decimal list-inside space-y-1">
-            <li>打開 PowerShell 或命令提示字元</li>
-            <li>導航到後端目錄：<br><code class="bg-gray-200 px-1 py-0.5 rounded text-xs">cd "${window.location.pathname.replace('/frontend/main.html', '/backend').replace('/', '')}"</code></li>
-            <li>執行後端：<br><code class="bg-gray-200 px-1 py-0.5 rounded text-xs">python app_web.py</code></li>
-            <li>等待看到 "📱 網頁應用程式將在 http://localhost:5000 運行" 訊息</li>
-            <li>重新整理此頁面</li>
-          </ol>
-        </div>
-        
-        <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-          <p class="text-yellow-800"><strong>⚠️ 注意：</strong></p>
-          <ul class="list-disc list-inside space-y-1 text-yellow-700">
-            <li>確保已安裝 Python 3.7+</li>
-            <li>確保已安裝必要套件：flask, flask-cors, selenium, webdriver-manager</li>
-            <li>如果遇到套件錯誤，請執行：<br><code class="bg-yellow-200 px-1 py-0.5 rounded text-xs">pip install flask flask-cors selenium webdriver-manager</code></li>
+        <div class="bg-orange-50 p-3 rounded-lg border border-orange-200">
+          <p class="font-semibold text-orange-800 mb-2">🔍 問題診斷</p>
+          <p>後端回傳了 HTML 而不是 JSON，這通常是因為：</p>
+          <ul class="list-disc list-inside space-y-1 text-orange-700 mt-2">
+            <li>ngrok 顯示了警告/歡迎頁面（免費版會有「Visit Site」按鈕）</li>
+            <li>ngrok 沒有正確轉發請求到本地後端</li>
+            <li>後端服務沒有正確啟動</li>
           </ul>
         </div>
         
-        <div class="text-xs text-gray-500 mt-3">
-          💡 提示：後端啟動後請保持終端視窗開啟，不要關閉它
+        <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+          <p class="font-semibold text-blue-800 mb-2">✅ 解決方案 1：跳過 ngrok 警告頁</p>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>在瀏覽器新分頁開啟：<br>
+              <code class="bg-blue-100 px-2 py-1 rounded text-xs select-all block mt-1">https://karissa-unsiding-graphemically.ngrok-free.dev/api/status</code>
+            </li>
+            <li>點擊 ngrok 頁面上的「<strong>Visit Site</strong>」按鈕</li>
+            <li>確認看到 JSON 回應（例如：{"browser_ready": true, ...}）</li>
+            <li>回到此頁面重新整理（Ctrl+F5）</li>
+          </ol>
+        </div>
+        
+        <div class="bg-green-50 p-3 rounded-lg border border-green-200">
+          <p class="font-semibold text-green-800 mb-2">✅ 解決方案 2：使用 ngrok 認證</p>
+          <p>在 ngrok 啟動指令加上 <code class="bg-green-100 px-1 rounded">--authtoken</code>：</p>
+          <code class="bg-green-100 px-2 py-1 rounded text-xs block mt-1">ngrok http 5000 --domain=karissa-unsiding-graphemically.ngrok-free.dev --authtoken=YOUR_TOKEN</code>
+          <p class="mt-2 text-xs">（到 <a href="https://dashboard.ngrok.com/get-started/your-authtoken" target="_blank" class="underline text-green-700">ngrok dashboard</a> 取得 authtoken）</p>
+        </div>
+        
+        <div class="bg-gray-50 p-3 rounded-lg border">
+          <p class="font-semibold text-gray-800 mb-2">🔧 解決方案 3：確認後端運行</p>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>確認 Python 後端已啟動：<code class="bg-gray-200 px-1 rounded">python server.py</code></li>
+            <li>確認本地可訪問：開啟 <code class="bg-gray-200 px-1 rounded">http://localhost:5000/api/status</code></li>
+            <li>確認 ngrok 已啟動並指向正確 port：<code class="bg-gray-200 px-1 rounded">ngrok http 5000 --domain=...</code></li>
+          </ol>
         </div>
       </div>
       <div class="flex gap-2 mt-4">
         <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">關閉</button>
-        <button onclick="window.location.reload()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">重新整理頁面</button>
-        <button onclick="openBackendFolder()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">打開後端目錄</button>
+        <button onclick="window.open('https://karissa-unsiding-graphemically.ngrok-free.dev/api/status', '_blank')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">開啟後端 API</button>
+        <button onclick="window.location.reload()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">重新整理</button>
       </div>
     </div>
   `;
   document.body.appendChild(modal);
-}
-
-// 打開後端目錄（嘗試）
-function openBackendFolder() {
-  const backendPath = window.location.pathname.replace('/frontend/main.html', '/backend').replace('/', '');
-  // 嘗試使用 file:// 協議打開目錄
-  try {
-    window.open(`file:///${backendPath}`, '_blank');
-  } catch (e) {
-    // 如果失敗，顯示路徑
-    alert(`請手動導航到此目錄：\n${backendPath}`);
-  }
 }
 
 // 重新連接後端
@@ -403,7 +339,10 @@ async function reconnectBackend() {
   try {
     const response = await fetch(API_ENDPOINTS.restart, {
       method: 'POST',
-      credentials: 'include'
+      headers: {
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'PythonDiagnosticPlatform'
+      }
     });
     const result = await response.json();
     
@@ -551,9 +490,10 @@ async function runProgram() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'PythonDiagnosticPlatform'
       },
-      body: JSON.stringify({ code: code }),
-      credentials: 'include' // 包含session cookie
+      body: JSON.stringify({ code: code })
     });
     
     const result = await response.json();
@@ -701,28 +641,8 @@ async function initFromStorage() {
 async function initializeBackend() {
   console.log('🔄 正在初始化後端連接...');
   
-  // 首先檢查後端是否已經運行
-  let status = await checkBackendStatus();
-  
-  if (!status) {
-    console.log('🚀 後端未運行，嘗試自動啟動...');
-    const started = await startBackendAutomatically();
-    
-    if (started) {
-      status = await checkBackendStatus();
-    } else {
-      console.log('⚠️ 自動啟動失敗，請手動啟動後端');
-      return;
-    }
-  }
-  
-  if (status && status.browser_ready) {
-    console.log('✅ 後端已就緒');
-  } else if (status) {
-    console.log('⏳ 後端正在初始化中...');
-    // 等待後端完全就緒
-    await waitForBackendReady();
-  }
+  // 檢查後端狀態
+  await checkBackendStatus();
 }
 
 // 不要在這裡直接調用 initFromStorage()，等 Monaco Editor 初始化完成後再調用
