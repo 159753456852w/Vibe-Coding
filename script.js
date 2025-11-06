@@ -3,9 +3,9 @@ let monacoEditor = null;
 
 // 後端API配置 - 支援本地和 ngrok 自動切換
 const API_CONFIG = {
-  local: 'http://localhost:5000',
-  ngrok: 'https://karissa-unsiding-graphemically.ngrok-free.dev',
-  current: localStorage.getItem('apiMode') || 'local', // 預設使用本地
+  local: window.API_CONFIG_EXTERNAL?.LOCAL_API_URL || 'http://localhost:5000',
+  ngrok: window.API_CONFIG_EXTERNAL?.NGROK_API_URL || 'https://karissa-unsiding-graphemically.ngrok-free.dev',
+  current: localStorage.getItem('apiMode') || (window.API_CONFIG_EXTERNAL?.DEFAULT_MODE || 'ngrok'),
   autoDetected: false // 標記是否已自動偵測
 };
 
@@ -172,6 +172,11 @@ const weaknessAnalysis = {
     const bSpeed  = document.getElementById('weakSpeedBar');
     const bName   = document.getElementById('weakNamingBar');
 
+    // 檢查元素是否存在
+    if (!wSyntax || !wSpeed || !wName || !bSyntax || !bSpeed || !bName) {
+      return; // 元素不存在時直接返回，避免錯誤
+    }
+
     const s = isNaN(this.syntaxErrors) ? 0 : this.syntaxErrors;
     const c = isNaN(this.codingSpeed) ? 0 : this.codingSpeed;
     const n = isNaN(this.namingIssues) ? 0 : this.namingIssues;
@@ -185,6 +190,8 @@ const weaknessAnalysis = {
   },
   generateSuggestions() {
     const list = document.getElementById('aiSuggestionList');
+    if (!list) return; // 元素不存在時直接返回
+    
     list.innerHTML = "";
     const suggestions = [];
     if (this.syntaxErrors >= 30) {
@@ -241,64 +248,73 @@ function getCode() {
 
 // 更新顯示：統一入口
 function updateStatsDisplay() {
+  // 輔助函數：安全設置文本內容
+  const safeSetText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+  
+  // 輔助函數：安全設置樣式
+  const safeSetStyle = (id, property, value) => {
+    const el = document.getElementById(id);
+    if (el) el.style[property] = value;
+  };
+  
   // 🆕 顯示學生姓名
-  const studentNameDisplay = document.getElementById('studentNameText');
-  if (studentNameDisplay) {
-    studentNameDisplay.textContent = stats.studentName || '未設定';
-  }
+  safeSetText('studentNameText', stats.studentName || '未設定');
   
   // 頂部進度與統計
-  document.getElementById('runCount').textContent = stats.runCount;
-  document.getElementById('codeModCount').textContent = stats.codeModifications;
-  document.getElementById('codeModBottom').textContent = stats.codeModifications;
-  document.getElementById('successfulRuns').textContent = stats.successfulRuns;
-  document.getElementById('errorCount').textContent = stats.errorCount;
+  safeSetText('runCount', stats.runCount);
+  safeSetText('codeModCount', stats.codeModifications);
+  safeSetText('codeModBottom', stats.codeModifications);
+  safeSetText('successfulRuns', stats.successfulRuns);
+  safeSetText('errorCount', stats.errorCount);
 
   // 平均分數
   const avg = stats.totalScores.length ? Math.round(stats.totalScores.reduce((a,b)=>a+b,0)/stats.totalScores.length) : 0;
   stats.averageScore = avg;
-  document.getElementById('avgScore').textContent = avg;
+  safeSetText('avgScore', avg);
 
   // 學習時間
   const now = Date.now();
   const sessionDuration = now - stats.sessionStartTime;
-  document.getElementById('sessionDuration').textContent = formatTime(sessionDuration);
-  document.getElementById('totalTimeText').textContent = formatTime(stats.totalCodingTime);
-  document.getElementById('totalTimeTextCard').textContent = formatTime(stats.totalCodingTime);
+  safeSetText('sessionDuration', formatTime(sessionDuration));
+  safeSetText('totalTimeText', formatTime(stats.totalCodingTime));
+  safeSetText('totalTimeTextCard', formatTime(stats.totalCodingTime));
 
   // 鍵盤 / 滑鼠 / 點擊
-  document.getElementById('keyPressCount').textContent = stats.keyPressCount;
-  document.getElementById('clickCount').textContent = stats.totalClicks;
-  document.getElementById('mouseMoveCount').textContent = stats.mouseMoveCount;
+  safeSetText('keyPressCount', stats.keyPressCount);
+  safeSetText('clickCount', stats.totalClicks);
+  safeSetText('mouseMoveCount', stats.mouseMoveCount);
 
   // 每分鐘
   const mins = Math.max(1, (now - stats.sessionStartTime)/60000);
-  document.getElementById('clickPerMin').textContent = Math.round(stats.totalClicks / mins);
-  document.getElementById('keyPerMin').textContent = Math.round(stats.keyPressCount / mins);
+  safeSetText('clickPerMin', Math.round(stats.totalClicks / mins));
+  safeSetText('keyPerMin', Math.round(stats.keyPressCount / mins));
 
   // 進度條（行為）
   const clamp = (v)=> Math.max(0, Math.min(100, v));
-  document.getElementById('mouseMoveBar').style.width = clamp(stats.mouseMoveCount/5) + "%";
-  document.getElementById('clickBar').style.width = clamp(stats.totalClicks*5) + "%";
-  document.getElementById('keyPressBar').style.width = clamp(stats.keyPressCount/3) + "%";
-  document.getElementById('mouseMoveActive').textContent = clamp(stats.meaningfulMouseMoves) + "%";
+  safeSetStyle('mouseMoveBar', 'width', clamp(stats.mouseMoveCount/5) + "%");
+  safeSetStyle('clickBar', 'width', clamp(stats.totalClicks*5) + "%");
+  safeSetStyle('keyPressBar', 'width', clamp(stats.keyPressCount/3) + "%");
+  safeSetText('mouseMoveActive', clamp(stats.meaningfulMouseMoves) + "%");
 
   // 專注時間與條
-  document.getElementById('focusTimeText').textContent = formatTime(stats.totalFocusTime);
-  document.getElementById('focusStreakText').textContent = Math.round(stats.currentFocusStreak/1000) + "s";
+  safeSetText('focusTimeText', formatTime(stats.totalFocusTime));
+  safeSetText('focusStreakText', Math.round(stats.currentFocusStreak/1000) + "s");
   const focusPercent = clamp((stats.currentFocusStreak/1000) / 60 * 100); // 60s = 100%
-  document.getElementById('focusBar').style.width = focusPercent + "%";
+  safeSetStyle('focusBar', 'width', focusPercent + "%");
 
   // 成功率
   const successRate = stats.runCount ? Math.round((stats.successfulRuns / stats.runCount) * 100) : 0;
-  document.getElementById('successRate').textContent = successRate + "%";
+  safeSetText('successRate', successRate + "%");
 
   // 平均編程時間（估：總編碼時間 / 修改次數）
   const avgCoding = stats.codeModifications ? stats.totalCodingTime / stats.codeModifications : 0;
-  document.getElementById('avgCodingTime').textContent = formatTime(avgCoding);
+  safeSetText('avgCodingTime', formatTime(avgCoding));
 
   // 累計分數數量
-  document.getElementById('totalScoreCount').textContent = stats.totalScores.length;
+  safeSetText('totalScoreCount', stats.totalScores.length);
 
   // ⚠️ 注意：不要在這裡更新 AI 評分系統的分數
   // AI 評分系統的分數應該只由 AI 分析結果更新，而不是統計數據
@@ -1397,11 +1413,7 @@ print("這是第 1 題 ✅")`,
 }
 
 // 當 DOM 載入完成後初始化 Monaco Editor
-document.addEventListener('DOMContentLoaded', async () => {
-  // 🔍 首先自動偵測 API
-  await autoDetectAPI();
-  
-  // 然後初始化編輯器
+document.addEventListener('DOMContentLoaded', () => {
   initializeMonacoEditor();
   
   // 🎯 初始化 AI 評分系統顯示（清空預設值）
