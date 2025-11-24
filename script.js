@@ -693,6 +693,23 @@ async function runProgram() {
       throw new Error('程式碼不能為空');
     }
     
+    // 檢查程式碼是否使用 input()
+    const hasInput = /\binput\s*\(/.test(code);
+    let inputs = [];
+    
+    if (hasInput) {
+      // 顯示輸入對話框
+      inputs = await showInputDialog(code);
+      if (inputs === null) {
+        // 使用者取消
+        runBtn.disabled = false;
+        runBtn.textContent = "▶️ 執行程式";
+        runStatus.textContent = "已取消";
+        runStatus.className = "text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 border";
+        return;
+      }
+    }
+    
     const response = await fetch(API_ENDPOINTS.execute, {
       method: 'POST',
       headers: {
@@ -700,7 +717,10 @@ async function runProgram() {
         'ngrok-skip-browser-warning': 'true',
         'User-Agent': 'PythonDiagnosticPlatform'
       },
-      body: JSON.stringify({ code: code })
+      body: JSON.stringify({ 
+        code: code,
+        inputs: inputs  // 傳送輸入資料
+      })
     });
     
     const result = await response.json();
@@ -730,6 +750,85 @@ async function runProgram() {
     runBtn.textContent = "▶️ 執行程式";
     updateStatsDisplay();
   }
+}
+
+// 顯示輸入對話框
+async function showInputDialog(code) {
+  // 計算需要多少個輸入
+  const inputMatches = code.match(/\binput\s*\(/g);
+  const inputCount = inputMatches ? inputMatches.length : 1;
+  
+  return new Promise((resolve) => {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+      <div class="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl">
+        <h3 class="text-lg font-bold mb-4 text-gray-800">🔤 程式需要輸入資料</h3>
+        <p class="text-sm text-gray-600 mb-4">偵測到程式使用了 <code class="bg-gray-100 px-2 py-1 rounded">input()</code>，請依序輸入資料：</p>
+        
+        <div id="inputFields" class="space-y-3 mb-4 max-h-64 overflow-y-auto">
+          ${Array.from({length: inputCount}, (_, i) => `
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-1">輸入 ${i + 1}:</label>
+              <input 
+                type="text" 
+                id="input_${i}" 
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="請輸入值"
+              />
+            </div>
+          `).join('')}
+        </div>
+        
+        <div class="flex gap-2">
+          <button 
+            id="cancelInputBtn" 
+            class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 rounded-lg transition-colors">
+            取消
+          </button>
+          <button 
+            id="confirmInputBtn" 
+            class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg transition-colors">
+            確認執行
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // 聚焦第一個輸入框
+    setTimeout(() => {
+      const firstInput = document.getElementById('input_0');
+      if (firstInput) firstInput.focus();
+    }, 100);
+    
+    // 取消按鈕
+    document.getElementById('cancelInputBtn').addEventListener('click', () => {
+      modal.remove();
+      resolve(null);
+    });
+    
+    // 確認按鈕
+    document.getElementById('confirmInputBtn').addEventListener('click', () => {
+      const inputs = [];
+      for (let i = 0; i < inputCount; i++) {
+        const input = document.getElementById(`input_${i}`);
+        inputs.push(input.value);
+      }
+      modal.remove();
+      resolve(inputs);
+    });
+    
+    // Enter 鍵確認（最後一個輸入框）
+    const lastInput = document.getElementById(`input_${inputCount - 1}`);
+    if (lastInput) {
+      lastInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          document.getElementById('confirmInputBtn').click();
+        }
+      });
+    }
+  });
 }
 
 // 儲存程式碼（localStorage）

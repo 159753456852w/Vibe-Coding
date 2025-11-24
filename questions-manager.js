@@ -331,7 +331,7 @@ class QuestionsManager {
           <img src="${imageUrl}" 
                alt="示例圖片" 
                class="w-full h-auto rounded-lg shadow-md hover:shadow-xl transition-shadow cursor-pointer"
-               onerror="this.style.display='none'"
+               onerror="this.parentElement.innerHTML='<div class=\\"text-center text-gray-500 py-6\\"><div class=\\"text-3xl mb-2\\">❌</div><div class=\\"font-semibold mb-2\\">圖片載入失敗</div><div class=\\"text-xs text-gray-400\\">請檢查 Google Drive 權限設定</div><div class=\\"text-xs text-gray-400 mt-1\\">確保設定為「知道連結的使用者」可檢視</div></div>'"
                onclick="window.open('${question.example_image}', '_blank')"
                loading="lazy" />
         </div>
