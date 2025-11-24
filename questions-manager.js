@@ -7,33 +7,33 @@ class QuestionsManager {
   constructor() {
     this.questions = [];
     this.currentQuestionIndex = 0;
-    // 嘗試從 localStorage 讀取 API URL 設定，預設使用本地
-    this.apiBaseUrl = localStorage.getItem('apiBaseUrl') || 'http://localhost:5000';
-    this.ngrokUrl = 'https://karissa-unsiding-graphemically.ngrok-free.dev';
-    this.localUrl = 'http://localhost:5000';
+    // 從外部配置取得 Ngrok URL
+    this.apiBaseUrl = window.API_CONFIG_EXTERNAL?.API_URL || 'https://karissa-unsiding-graphemically.ngrok-free.dev';
   }
 
   /**
-   * 設定 API URL
+   * 轉換 Google Drive 分享連結為直接圖片 URL
+   */
+  convertGoogleDriveUrl(url) {
+    if (!url) return url;
+    
+    // 檢查是否為 Google Drive 連結
+    const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (driveMatch) {
+      const fileId = driveMatch[1];
+      // 使用 thumbnail 格式（格式 2）
+      return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+    }
+    
+    return url;
+  }
+
+  /**
+   * 設定 API URL（僅供外部更新使用）
    */
   setApiUrl(url) {
     this.apiBaseUrl = url;
-    localStorage.setItem('apiBaseUrl', url);
     console.log(`✅ API URL 已設定為: ${url}`);
-  }
-
-  /**
-   * 切換到 ngrok URL
-   */
-  useNgrok() {
-    this.setApiUrl(this.ngrokUrl);
-  }
-
-  /**
-   * 切換到本地 URL
-   */
-  useLocalhost() {
-    this.setApiUrl(this.localUrl);
   }
 
   /**
@@ -234,7 +234,7 @@ class QuestionsManager {
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
             ${this.renderLearningGoals(question)}
-            ${this.renderHints(question)}
+            ${this.renderExampleImage(question)}
           </div>
         </div>
       </section>
@@ -311,29 +311,31 @@ class QuestionsManager {
   }
 
   /**
-   * 渲染提示
+   * 渲染示例圖片
    */
-  renderHints(question) {
-    if (!question.hints || question.hints.length === 0) {
+  renderExampleImage(question) {
+    if (!question.example_image || !question.example_image.trim()) {
       return '';
     }
 
-    const hints = question.hints.map(hint => 
-      `<li class="flex items-start gap-2">
-        <span class="text-yellow-500 mt-0.5">💡</span>
-        <span>${hint}</span>
-      </li>`
-    ).join('');
+    // 轉換 Google Drive URL
+    const imageUrl = this.convertGoogleDriveUrl(question.example_image);
 
     return `
-      <div class="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-xl border border-yellow-200 p-4 shadow-sm">
+      <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200 p-4 shadow-sm">
         <div class="flex items-center gap-2 font-semibold text-gray-800 mb-3">
-          <span class="text-lg">💡</span>
-          <span>小提示</span>
+          <span class="text-lg">🖼️</span>
+          <span>示例圖片</span>
         </div>
-        <ul class="text-sm text-gray-700 space-y-2">
-          ${hints}
-        </ul>
+        <div class="bg-white rounded-lg p-3 border border-purple-200">
+          <img src="${imageUrl}" 
+               alt="示例圖片" 
+               class="w-full h-auto rounded-lg shadow-md hover:shadow-xl transition-shadow cursor-pointer"
+               onerror="this.style.display='none'"
+               onclick="window.open('${question.example_image}', '_blank')"
+               loading="lazy" />
+        </div>
+        <div class="text-xs text-gray-500 mt-2 text-center">點擊圖片可在新分頁中開啟</div>
       </div>
     `;
   }

@@ -1,121 +1,16 @@
 // Monaco Editor 變數
 let monacoEditor = null;
 
-// 後端API配置 - 支援本地和 ngrok 自動切換
-const API_CONFIG = {
-  local: window.API_CONFIG_EXTERNAL?.LOCAL_API_URL || 'http://localhost:5000',
-  ngrok: window.API_CONFIG_EXTERNAL?.NGROK_API_URL || 'https://karissa-unsiding-graphemically.ngrok-free.dev',
-  current: localStorage.getItem('apiMode') || (window.API_CONFIG_EXTERNAL?.DEFAULT_MODE || 'ngrok'),
-  autoDetected: false // 標記是否已自動偵測
-};
+// 後端API配置 - 僅使用 Ngrok 模式
+const API_BASE_URL = window.API_CONFIG_EXTERNAL?.API_URL || 'https://karissa-unsiding-graphemically.ngrok-free.dev';
 
 // 獲取當前 API URL
 function getApiBaseUrl() {
-  return API_CONFIG[API_CONFIG.current];
+  return API_BASE_URL;
 }
 
-// 🔍 自動偵測可用的 API
-async function autoDetectAPI() {
-  console.log('🔍 開始自動偵測 API...');
-  
-  // 先嘗試 localStorage 中儲存的模式
-  const savedMode = localStorage.getItem('apiMode');
-  if (savedMode && (savedMode === 'local' || savedMode === 'ngrok')) {
-    const isAvailable = await testAPIConnection(savedMode);
-    if (isAvailable) {
-      console.log(`✅ 使用已儲存的 ${savedMode} 模式`);
-      API_CONFIG.current = savedMode;
-      API_CONFIG.autoDetected = true;
-      updateApiModeDisplay();
-      return savedMode;
-    }
-  }
-  
-  // 測試順序：先 local，再 ngrok
-  for (const mode of ['local', 'ngrok']) {
-    console.log(`🔍 測試 ${mode} 模式...`);
-    const isAvailable = await testAPIConnection(mode);
-    
-    if (isAvailable) {
-      console.log(`✅ ${mode} 模式可用！自動切換`);
-      API_CONFIG.current = mode;
-      API_CONFIG.autoDetected = true;
-      localStorage.setItem('apiMode', mode);
-      updateApiModeDisplay();
-      
-      // 同步更新 questions manager
-      if (window.questionsManager) {
-        window.questionsManager.setApiUrl(getApiBaseUrl());
-      }
-      
-      return mode;
-    }
-  }
-  
-  console.error('❌ 無法連接到任何 API 伺服器');
-  API_CONFIG.autoDetected = true;
-  updateApiModeDisplay();
-  return null;
-}
 
-// 🧪 測試 API 連接
-async function testAPIConnection(mode) {
-  const url = API_CONFIG[mode];
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3秒逾時
-    
-    const response = await fetch(`${url}/api/health`, {
-      method: 'GET',
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    return response.ok;
-  } catch (error) {
-    console.log(`⚠️ ${mode} 模式無法連接:`, error.message);
-    return false;
-  }
-}
-
-// 設定 API 模式（手動切換）
-function setApiMode(mode) {
-  if (mode === 'local' || mode === 'ngrok') {
-    API_CONFIG.current = mode;
-    localStorage.setItem('apiMode', mode);
-    console.log(`✅ API 模式已切換為: ${mode} (${getApiBaseUrl()})`);
-    
-    // 更新 UI 顯示
-    updateApiModeDisplay();
-    
-    // 同步更新 questions manager
-    if (window.questionsManager) {
-      window.questionsManager.setApiUrl(getApiBaseUrl());
-    }
-    
-    return true;
-  }
-  return false;
-}
-
-// 更新 API 模式顯示
-function updateApiModeDisplay() {
-  const badge = document.getElementById('modelBadge');
-  if (badge) {
-    const mode = API_CONFIG.current;
-    const url = getApiBaseUrl();
-    const autoText = API_CONFIG.autoDetected ? ' (自動)' : '';
-    badge.textContent = (mode === 'local' ? '本地模式' : 'ngrok 模式') + autoText;
-    badge.title = url;
-    badge.className = `text-xs px-2 py-1 rounded-full ${
-      mode === 'local' 
-        ? 'text-green-600 bg-green-50 border border-green-200' 
-        : 'text-indigo-600 bg-indigo-50 border border-indigo-200'
-    }`;
-  }
-}
-
-// 後端API配置對象（使用動態 URL）
+// 後端API配置對象（使用 Ngrok URL）
 const API_ENDPOINTS = {
   get execute() { return `${getApiBaseUrl()}/api/execute`; },
   get validate() { return `${getApiBaseUrl()}/api/validate`; },
@@ -398,7 +293,7 @@ async function checkBackendStatus() {
     console.error('後端狀態檢查失敗:', err);
     const statusElement = document.getElementById('backendStatus');
     if (statusElement) {
-      statusElement.textContent = 'ngrok 攔截';
+      statusElement.textContent = 'ngrok 問題';
       statusElement.className = 'text-xs px-2 py-1 rounded-full bg-orange-100 text-orange-700 border';
       statusElement.title = '點擊查看說明';
       statusElement.style.cursor = 'pointer';
@@ -410,7 +305,8 @@ async function checkBackendStatus() {
 
 // 初始化後端連接
 async function initializeBackend() {
-  console.log('🔄 正在初始化後端連接...');
+  console.log('🔄 正在初始化 Ngrok 後端連接...');
+  console.log('📡 API URL:', getApiBaseUrl());
   
   // 檢查後端狀態
   await checkBackendStatus();
@@ -418,101 +314,78 @@ async function initializeBackend() {
 
 // 顯示 ngrok 攔截警告
 function showNgrokWarningModal() {
+  const currentUrl = getApiBaseUrl();
+  
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
   modal.innerHTML = `
-    <div class="bg-white rounded-lg p-6 max-w-2xl mx-4 shadow-xl">
-      <h3 class="text-lg font-bold mb-4 text-gray-800">⚠️ ngrok 攔截問題</h3>
+    <div class="bg-white rounded-lg p-6 max-w-2xl mx-4 shadow-xl max-h-[90vh] overflow-y-auto">
+      <h3 class="text-lg font-bold mb-4 text-gray-800">⚠️ Ngrok 連接問題</h3>
+      
+      <div class="bg-gray-100 p-3 rounded-lg mb-4 border border-gray-300">
+        <p class="text-sm text-gray-600 mb-1"><strong>當前 Ngrok URL：</strong></p>
+        <p class="text-sm text-gray-600">
+          <code class="bg-white px-2 py-1 rounded text-xs break-all">${currentUrl}</code>
+        </p>
+      </div>
+      
       <div class="space-y-4 text-sm text-gray-600">
         <div class="bg-orange-50 p-3 rounded-lg border border-orange-200">
           <p class="font-semibold text-orange-800 mb-2">🔍 問題診斷</p>
-          <p>後端回傳了 HTML 而不是 JSON，這通常是因為：</p>
+          <p>無法連接到 Ngrok API，可能的原因：</p>
           <ul class="list-disc list-inside space-y-1 text-orange-700 mt-2">
-            <li>ngrok 顯示了警告/歡迎頁面（免費版會有「Visit Site」按鈕）</li>
-            <li>ngrok 沒有正確轉發請求到本地後端</li>
-            <li>後端服務沒有正確啟動</li>
+            <li>ngrok 顯示警告頁面（免費版會有「Visit Site」按鈕）</li>
+            <li>ngrok URL 已過期或改變</li>
+            <li>後端服務（server.py）沒有運行</li>
+            <li>防火牆或網路問題阻擋連接</li>
           </ul>
         </div>
         
         <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
           <p class="font-semibold text-blue-800 mb-2">✅ 解決方案 1：跳過 ngrok 警告頁</p>
-          <ol class="list-decimal list-inside space-y-1">
-            <li>在瀏覽器新分頁開啟：<br>
-              <code class="bg-blue-100 px-2 py-1 rounded text-xs select-all block mt-1">https://karissa-unsiding-graphemically.ngrok-free.dev/api/status</code>
+          <ol class="list-decimal list-inside space-y-2">
+            <li>點擊下方按鈕在新分頁開啟 API：
+              <button onclick="window.open('${currentUrl}/api/status', '_blank')" 
+                      class="mt-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs w-full">
+                🔗 開啟 ${currentUrl}/api/status
+              </button>
             </li>
-            <li>點擊 ngrok 頁面上的「<strong>Visit Site</strong>」按鈕</li>
-            <li>確認看到 JSON 回應（例如：{"browser_ready": true, ...}）</li>
-            <li>回到此頁面重新整理（Ctrl+F5）</li>
+            <li class="mt-2">如果看到 ngrok 警告頁，點擊「<strong>Visit Site</strong>」按鈕</li>
+            <li>確認看到 JSON 回應（例如：{"status": "running", ...}）</li>
+            <li>回到此頁面重新整理（<kbd>Ctrl+F5</kbd>）</li>
           </ol>
+          <p class="text-xs text-blue-600 mt-2">💡 提示：ngrok 免費版每次啟動 URL 都會改變，需要更新 <code>frontend/config.js</code></p>
         </div>
         
         <div class="bg-green-50 p-3 rounded-lg border border-green-200">
-          <p class="font-semibold text-green-800 mb-2">✅ 解決方案 2：使用本地模式</p>
-          <p>如果您的後端在本機運行（localhost:5000），可以直接使用本地模式：</p>
-          <button onclick="setApiMode('local'); this.closest('.fixed').remove(); location.reload();" 
-                  class="mt-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors w-full">
-            🔄 切換到本地模式 (localhost:5000)
-          </button>
+          <p class="font-semibold text-green-800 mb-2">✅ 解決方案 2：確認後端運行</p>
+          <p>確認 Python 後端和 ngrok 都已啟動：</p>
+          <ol class="list-decimal list-inside space-y-1 mt-2">
+            <li>在終端執行：<code class="bg-gray-200 px-2 py-1 rounded text-xs">python server.py</code></li>
+            <li>確認看到「伺服器啟動成功」訊息</li>
+            <li>在另一個終端執行：<code class="bg-gray-200 px-2 py-1 rounded text-xs">ngrok http 5000</code></li>
+            <li>複製 ngrok 的 Forwarding URL 並更新到 <code>frontend/config.js</code></li>
+          </ol>
         </div>
         
         <div class="bg-gray-50 p-3 rounded-lg border">
-          <p class="font-semibold text-gray-800 mb-2">🔧 解決方案 3：確認後端運行</p>
-          <ol class="list-decimal list-inside space-y-1">
-            <li>確認 Python 後端已啟動：<code class="bg-gray-200 px-1 rounded">python server.py</code></li>
-            <li>確認本地可訪問：開啟 <code class="bg-gray-200 px-1 rounded">http://localhost:5000/api/status</code></li>
-            <li>確認 ngrok 已啟動並指向正確 port：<code class="bg-gray-200 px-1 rounded">ngrok http 5000 --domain=...</code></li>
-          </ol>
+          <p class="font-semibold text-gray-800 mb-2">📚 完整設定指南</p>
+          <p>詳細的 ngrok 設定說明請參考：<code class="bg-gray-200 px-2 py-1 rounded text-xs">NGROK_SETUP.md</code></p>
         </div>
       </div>
-      <div class="flex gap-2 mt-4">
-        <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">關閉</button>
-        <button onclick="window.open('https://karissa-unsiding-graphemically.ngrok-free.dev/api/status', '_blank')" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">開啟後端 API</button>
-        <button onclick="window.location.reload()" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">重新整理</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-}
-
-// 顯示 API 模式選擇對話框
-function showApiModeSelector() {
-  const modal = document.createElement('div');
-  modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-  modal.innerHTML = `
-    <div class="bg-white rounded-lg p-6 max-w-md mx-4 shadow-xl">
-      <h3 class="text-lg font-bold mb-4 text-gray-800">🔄 選擇 API 模式</h3>
-      <div class="space-y-3">
-        <button onclick="setApiMode('local'); this.closest('.fixed').remove(); location.reload();" 
-                class="w-full p-4 text-left rounded-lg border-2 ${API_CONFIG.current === 'local' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-green-300'} transition-all">
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="font-semibold text-gray-800">🏠 本地模式</div>
-              <div class="text-sm text-gray-600">http://localhost:5000</div>
-            </div>
-            ${API_CONFIG.current === 'local' ? '<span class="text-green-600">✓</span>' : ''}
-          </div>
-          <div class="text-xs text-gray-500 mt-2">適用於本機開發，速度快，無需網路</div>
-        </button>
-        
-        <button onclick="setApiMode('ngrok'); this.closest('.fixed').remove(); location.reload();" 
-                class="w-full p-4 text-left rounded-lg border-2 ${API_CONFIG.current === 'ngrok' ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200 hover:border-indigo-300'} transition-all">
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="font-semibold text-gray-800">🌐 ngrok 模式</div>
-              <div class="text-sm text-gray-600">karissa-unsiding-graphemically.ngrok-free.dev</div>
-            </div>
-            ${API_CONFIG.current === 'ngrok' ? '<span class="text-indigo-600">✓</span>' : ''}
-          </div>
-          <div class="text-xs text-gray-500 mt-2">適用於遠端訪問，需要 ngrok 運行</div>
-        </button>
-      </div>
-      <div class="mt-4 pt-4 border-t">
-        <div class="text-xs text-gray-500 mb-3">
-          💡 提示：您可以隨時點擊右上角的「切換」按鈕或標籤來更改模式
-        </div>
+      
+      <div class="flex gap-2 mt-4 flex-wrap">
         <button onclick="this.closest('.fixed').remove()" 
-                class="w-full px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">
-          取消
+                class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 transition-colors">
+          關閉
+        </button>
+        <button onclick="window.location.reload()" 
+                class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">
+          🔄 重新整理
+        </button>
+        <button onclick="window.open('${currentUrl}/api/status', '_blank')" 
+                class="px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors">
+          � 測試 API 連接
         </button>
       </div>
     </div>
@@ -1009,39 +882,6 @@ document.getElementById('manualAnalyzeBtn').addEventListener('click', async (e) 
   }
 });
 
-// API 模式切換按鈕
-const apiModeToggleBtn = document.getElementById('apiModeToggleBtn');
-if (apiModeToggleBtn) {
-  apiModeToggleBtn.addEventListener('click', () => {
-    const currentMode = API_CONFIG.current;
-    const newMode = currentMode === 'local' ? 'ngrok' : 'local';
-    
-    if (setApiMode(newMode)) {
-      // 顯示切換成功提示
-      const badge = document.getElementById('modelBadge');
-      const originalText = badge.textContent;
-      badge.textContent = '✓ 已切換';
-      
-      setTimeout(() => {
-        updateApiModeDisplay();
-      }, 1000);
-      
-      // 可選：重新連接後端
-      setTimeout(() => {
-        checkBackendStatus();
-      }, 500);
-    }
-  });
-}
-
-// 點擊 badge 也可以切換
-const modelBadge = document.getElementById('modelBadge');
-if (modelBadge) {
-  modelBadge.addEventListener('click', () => {
-    apiModeToggleBtn.click();
-  });
-}
-
 // 學習進度初始化
 async function initFromStorage() {
   // 檢查是否已輸入學生姓名
@@ -1052,9 +892,7 @@ async function initFromStorage() {
   
   // 顯示歡迎訊息
   console.log(`👋 歡迎, ${stats.studentName}!`);
-  
-  // 初始化 API 模式顯示
-  updateApiModeDisplay();
+  console.log(`🌐 使用 Ngrok 模式: ${getApiBaseUrl()}`);
   
   // 同步 questions manager 的 API URL
   if (window.questionsManager) {
@@ -1285,11 +1123,9 @@ async function initializeBackend() {
 // 定期檢查後端狀態
 setInterval(checkBackendStatus, 10000); // 每10秒檢查一次
 
-// 在頁面載入時顯示當前 API 模式
-console.log('🔧 當前 API 模式:', API_CONFIG.current);
-console.log('🌐 當前 API URL:', getApiBaseUrl());
-console.log('💡 使用 setApiMode("local") 或 setApiMode("ngrok") 切換模式');
-console.log('💡 或點擊右上角的「切換」按鈕');
+// 在頁面載入時顯示 Ngrok 資訊
+console.log('🌐 使用 Ngrok 模式');
+console.log('📡 API URL:', getApiBaseUrl());
 
 // 測試工具
 window.testLearningProgress = {
@@ -1328,26 +1164,6 @@ window.testLearningProgress = {
   },
   analyzeWeaknesses() {
     weaknessAnalysis.analyzeWeaknesses();
-  }
-};
-
-// API 切換工具
-window.apiTools = {
-  useLocal() {
-    setApiMode('local');
-    console.log('✅ 已切換到本地模式:', getApiBaseUrl());
-  },
-  useNgrok() {
-    setApiMode('ngrok');
-    console.log('✅ 已切換到 ngrok 模式:', getApiBaseUrl());
-  },
-  getCurrentMode() {
-    console.log('當前模式:', API_CONFIG.current);
-    console.log('API URL:', getApiBaseUrl());
-    return API_CONFIG.current;
-  },
-  showSelector() {
-    showApiModeSelector();
   }
 };
 
