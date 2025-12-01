@@ -18,7 +18,8 @@ const API_ENDPOINTS = {
   get restart() { return `${getApiBaseUrl()}/api/restart`; },
   get aiAnalyze() { return `${getApiBaseUrl()}/api/ai/analyze`; },
   get aiCheck() { return `${getApiBaseUrl()}/api/ai/check`; },
-  get aiSuggest() { return `${getApiBaseUrl()}/api/ai/suggest`; }
+  get aiSuggest() { return `${getApiBaseUrl()}/api/ai/suggest`; },
+  get aiChat() { return `${getApiBaseUrl()}/api/ai/chat`; }
 };
 
 // 狀態資料結構
@@ -41,7 +42,12 @@ const stats = {
   totalScores: [], averageScore: 0, lastCodeContent: "",
   
   // 學生資訊
-  studentName: localStorage.getItem('studentName') || ''
+  studentName: localStorage.getItem('studentName') || '',
+  
+  // AI 評分記錄
+  lastAiScore: null,
+  lastAiScoreCode: '',
+  lastAiScoreOutput: ''
 };
 
 const weaknessAnalysis = {
@@ -114,9 +120,6 @@ const editorContainer = document.getElementById('codeEditor');
 const outputBox = document.getElementById('outputBox');
 const runBtn = document.getElementById('runBtn');
 const aiCheckBtn = document.getElementById('aiCheckBtn');
-const saveBtn = document.getElementById('saveBtn');
-const reconnectBtn = document.getElementById('reconnectBtn');
-const saveHint = document.getElementById('saveHint');
 const runStatus = document.getElementById('runStatus');
 const aiStatus = document.getElementById('aiStatus');
 
@@ -248,7 +251,6 @@ function detectCodeModification() {
     stats.codeModifications++;
     stats.lastCodeContent = content;
     stats.lastCodeChangeTime = Date.now();
-    saveHint.textContent = "有未儲存的變更";
     updateStatsDisplay();
   }
 }
@@ -393,39 +395,6 @@ function showNgrokWarningModal() {
   document.body.appendChild(modal);
 }
 
-// 重新連接後端
-async function reconnectBackend() {
-  try {
-    const response = await fetch(API_ENDPOINTS.restart, {
-      method: 'POST',
-      headers: {
-        'ngrok-skip-browser-warning': 'true',
-        'User-Agent': 'PythonDiagnosticPlatform'
-      }
-    });
-    const result = await response.json();
-    
-    if (result.success) {
-      // 顯示重連中狀態
-      const statusElement = document.getElementById('backendStatus');
-      if (statusElement) {
-        statusElement.textContent = '重新連接中';
-        statusElement.className = 'text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 border';
-      }
-      
-      // 等待一段時間後重新檢查狀態
-      setTimeout(() => {
-        checkBackendStatus();
-      }, 3000);
-      
-      return true;
-    }
-  } catch (err) {
-    console.error('重新連接失敗:', err);
-  }
-  return false;
-}
-
 // 保留原本的模擬執行函數作為後備方案
 function simulatePythonRun(code) {
   // 簡易偵錯：引號不成對、未關閉括號
@@ -559,12 +528,32 @@ async function aiCheck() {
       
       // 顯示 AI 分析結果
       const list = document.getElementById('aiSuggestionList');
-      list.innerHTML = "";
+      if (list) list.innerHTML = "";
       
-      // 添加成績提交狀態提示
+      // 清空舊評分（現在顯示在 scoreDisplayArea）
+      const scoreDisplayArea = document.getElementById('scoreDisplayArea');
+      if (scoreDisplayArea) {
+        scoreDisplayArea.innerHTML = '';
+        // 移除「無評分」提示
+        const noScoreYet = document.getElementById('noScoreYet');
+        if (noScoreYet) noScoreYet.remove();
+      }
+      
+      // 記錄評分資料（供對話機器人使用）
+      stats.lastAiScore = {
+        overall: overallScore,
+        time_complexity: analysis.time_complexity_score,
+        space_complexity: analysis.space_complexity_score,
+        readability: analysis.readability_score,
+        stability: analysis.stability_score
+      };
+      stats.lastAiScoreCode = code;
+      stats.lastAiScoreOutput = runText;
+      
+      // 添加成績提交狀態提示（只顯示分數，不顯示評語）
       if (submitted) {
         const submittedDiv = document.createElement('div');
-        submittedDiv.className = 'bg-green-50 border border-green-200 rounded-lg p-3 mb-3 shadow-sm';
+        submittedDiv.className = 'bg-green-50 border border-green-200 rounded-lg p-3 shadow-sm';
         
         // 建立評分詳情文字
         const timeScore = analysis.time_complexity_score !== undefined ? analysis.time_complexity_score : '-';
@@ -573,44 +562,43 @@ async function aiCheck() {
         const stabScore = analysis.stability_score !== undefined ? analysis.stability_score : '-';
         
         submittedDiv.innerHTML = `
-          <div class="flex items-start gap-3">
-            <span class="text-2xl">✅</span>
-            <div class="flex-1">
-              <div class="font-semibold text-green-800 mb-2">成績已記錄</div>
-              <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-                <div class="bg-white rounded px-2 py-1 border border-green-200">
-                  <div class="text-gray-500">總分</div>
-                  <div class="text-lg font-bold text-gray-800">${overallScore}<span class="text-sm text-gray-500">/100</span></div>
-                </div>
-                <div class="bg-white rounded px-2 py-1 border border-indigo-200">
-                  <div class="text-gray-500">⏱️ 時間</div>
-                  <div class="text-lg font-bold text-indigo-700">${timeScore}<span class="text-sm text-indigo-500">/10</span></div>
-                </div>
-                <div class="bg-white rounded px-2 py-1 border border-purple-200">
-                  <div class="text-gray-500">💾 空間</div>
-                  <div class="text-lg font-bold text-purple-700">${spaceScore}<span class="text-sm text-purple-500">/10</span></div>
-                </div>
-                <div class="bg-white rounded px-2 py-1 border border-green-200">
-                  <div class="text-gray-500">📖 易讀</div>
-                  <div class="text-lg font-bold text-green-700">${readScore}<span class="text-sm text-green-500">/10</span></div>
-                </div>
-                <div class="bg-white rounded px-2 py-1 border border-blue-200">
-                  <div class="text-gray-500">🛡️ 穩定</div>
-                  <div class="text-lg font-bold text-blue-700">${stabScore}<span class="text-sm text-blue-500">/10</span></div>
-                </div>
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center gap-2">
+              <span class="text-xl">✅</span>
+              <span class="font-semibold text-green-800">成績已記錄</span>
+            </div>
+            
+            <!-- 總分大卡片 -->
+            <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3 border border-green-200 text-center">
+              <div class="text-xs text-gray-600 mb-1">總分</div>
+              <div class="text-3xl font-bold text-green-700">${overallScore}<span class="text-lg text-gray-500">/100</span></div>
+            </div>
+            
+            <!-- 細項分數 - 2x2 網格 -->
+            <div class="grid grid-cols-2 gap-2 text-xs">
+              <div class="bg-white rounded-lg px-3 py-2 border border-indigo-200">
+                <div class="text-gray-500 mb-1">⏱️ 時間</div>
+                <div class="text-xl font-bold text-indigo-700">${timeScore}<span class="text-sm text-indigo-400">/10</span></div>
+              </div>
+              <div class="bg-white rounded-lg px-3 py-2 border border-purple-200">
+                <div class="text-gray-500 mb-1">💾 空間</div>
+                <div class="text-xl font-bold text-purple-700">${spaceScore}<span class="text-sm text-purple-400">/10</span></div>
+              </div>
+              <div class="bg-white rounded-lg px-3 py-2 border border-green-200">
+                <div class="text-gray-500 mb-1">📖 易讀</div>
+                <div class="text-xl font-bold text-green-700">${readScore}<span class="text-sm text-green-400">/10</span></div>
+              </div>
+              <div class="bg-white rounded-lg px-3 py-2 border border-blue-200">
+                <div class="text-gray-500 mb-1">🛡️ 穩定</div>
+                <div class="text-xl font-bold text-blue-700">${stabScore}<span class="text-sm text-blue-400">/10</span></div>
               </div>
             </div>
           </div>
         `;
-        document.getElementById('aiAnalysisBox').insertBefore(submittedDiv, list);
-      }
-      
-      // 添加總體評語
-      if (analysis.feedback) {
-        const feedbackDiv = document.createElement('div');
-        feedbackDiv.className = 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-3 shadow-sm';
-        feedbackDiv.innerHTML = `<div class="flex items-start gap-2"><span class="text-2xl">💬</span><div><strong class="text-blue-800">AI 評語</strong><div class="mt-2 text-gray-700 leading-relaxed">${analysis.feedback.replace(/\n/g, '<br>')}</div></div></div>`;
-        document.getElementById('aiAnalysisBox').insertBefore(feedbackDiv, list);
+        const scoreDisplayArea = document.getElementById('scoreDisplayArea');
+        if (scoreDisplayArea) {
+          scoreDisplayArea.appendChild(submittedDiv);
+        }
       }
       
       // 更新狀態
@@ -832,15 +820,7 @@ async function showInputDialog(code) {
 }
 
 // 儲存程式碼（localStorage）
-function saveCode() {
-  try {
-    localStorage.setItem("python_diagnose_code", getCode());
-    saveHint.textContent = "已儲存 ✅";
-    setTimeout(()=>{ saveHint.textContent = "已儲存"; }, 1500);
-  } catch (e) {
-    saveHint.textContent = "儲存失敗";
-  }
-}
+
 
 // 事件監聽系統
 document.addEventListener('keydown', (e) => {
@@ -913,8 +893,182 @@ setInterval(() => {
 // 按鈕
 runBtn.addEventListener('click', (e) => { e.preventDefault(); runProgram(); });
 aiCheckBtn.addEventListener('click', (e) => { e.preventDefault(); aiCheck(); });
-saveBtn.addEventListener('click', (e) => { e.preventDefault(); saveCode(); });
-reconnectBtn.addEventListener('click', (e) => { e.preventDefault(); reconnectBackend(); });
+
+// 對話機器人功能
+let isUserScrolling = false; // 追蹤使用者是否主動上捲
+
+// 監控使用者滾動行為
+const chatHistory = document.getElementById('chatHistory');
+if (chatHistory) {
+  chatHistory.addEventListener('scroll', () => {
+    const isAtBottom = chatHistory.scrollHeight - chatHistory.scrollTop <= chatHistory.clientHeight + 50;
+    isUserScrolling = !isAtBottom;
+  });
+}
+
+// 自動滾動到底部
+function scrollChatToBottom() {
+  if (chatHistory && !isUserScrolling) {
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+  }
+}
+
+// 添加訊息到對話歷史（支援流式輸出）
+function addChatMessage(content, isUser = false, messageId = null) {
+  const chatHistory = document.getElementById('chatHistory');
+  if (!chatHistory) return null;
+
+  // 如果提供了 messageId，更新現有訊息
+  if (messageId) {
+    const existingMessage = document.getElementById(messageId);
+    if (existingMessage) {
+      const bubble = existingMessage.querySelector('div[class*="rounded-lg"]');
+      if (bubble) {
+        const textDiv = bubble.querySelector('div');
+        if (textDiv) {
+          textDiv.innerHTML = content.replace(/\n/g, '<br>');
+        }
+      }
+      setTimeout(scrollChatToBottom, 50);
+      return messageId;
+    }
+  }
+
+  // 創建新訊息
+  const uniqueId = messageId || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const messageDiv = document.createElement('div');
+  messageDiv.id = uniqueId;
+  messageDiv.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+  
+  const bubble = document.createElement('div');
+  bubble.className = `max-w-[80%] rounded-lg px-4 py-2 ${
+    isUser 
+      ? 'bg-indigo-600 text-white' 
+      : 'bg-gray-100 text-gray-800'
+  }`;
+  bubble.innerHTML = `<div class="text-sm whitespace-pre-wrap">${content.replace(/\n/g, '<br>')}</div>`;
+  
+  messageDiv.appendChild(bubble);
+  chatHistory.appendChild(messageDiv);
+  
+  // 自動滾動到底部
+  setTimeout(scrollChatToBottom, 100);
+  
+  return uniqueId;
+}
+
+// 發送對話訊息（使用流式輸出）
+async function sendChatMessage() {
+  const chatInput = document.getElementById('chatInput');
+  const chatSendBtn = document.getElementById('chatSendBtn');
+  
+  if (!chatInput || !chatInput.value.trim()) return;
+  
+  const userMessage = chatInput.value.trim();
+  chatInput.value = '';
+  
+  // 顯示使用者訊息
+  addChatMessage(userMessage, true);
+  
+  // 顯示載入中
+  chatSendBtn.disabled = true;
+  chatSendBtn.textContent = '思考中...';
+  
+  try {
+    // 獲取當前程式碼和執行結果
+    const code = getCode();
+    const output = document.getElementById('outputBox')?.textContent || '';
+    
+    // 獲取當前題目資訊
+    const currentQuestion = window.questionsManager?.getCurrentQuestion();
+    const questionContext = currentQuestion ? {
+      title: currentQuestion.title || '',
+      description: currentQuestion.description || ''
+    } : null;
+    
+    // 構建完整的系統提示詞
+    const systemContext = {
+      message: userMessage,
+      question: questionContext,
+      current_code: code,
+      current_output: output,
+      last_score: stats.lastAiScore,
+      last_score_code: stats.lastAiScoreCode,
+      last_score_output: stats.lastAiScoreOutput
+    };
+    
+    // 呼叫對話 API（流式輸出）
+    const response = await fetch(API_ENDPOINTS.aiChat, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'PythonDiagnosticPlatform'
+      },
+      body: JSON.stringify(systemContext)
+    });
+    
+    // 檢查是否為流式輸出
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('text/event-stream')) {
+      // 流式輸出處理
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let aiMessageId = null;
+      let accumulatedText = '';
+      
+      chatSendBtn.textContent = '接收中...';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') break;
+            
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.text) {
+                accumulatedText += parsed.text;
+                // 更新或創建 AI 訊息
+                aiMessageId = addChatMessage(accumulatedText, false, aiMessageId);
+              }
+            } catch (e) {
+              console.error('解析流式數據錯誤:', e);
+            }
+          }
+        }
+      }
+    } else {
+      // 非流式輸出（後備方案）
+      const result = await response.json();
+      
+      if (result.success && result.reply) {
+        addChatMessage(result.reply, false);
+      } else {
+        throw new Error(result.error || '對話失敗');
+      }
+    }
+    
+  } catch (err) {
+    console.error('對話錯誤:', err);
+    addChatMessage('抱歉，我現在無法回答。請稍後再試。', false);
+  } finally {
+    chatSendBtn.disabled = false;
+    chatSendBtn.textContent = '發送';
+  }
+}
+
+// 綁定發送按鈕
+const chatSendBtn = document.getElementById('chatSendBtn');
+if (chatSendBtn) {
+  chatSendBtn.addEventListener('click', sendChatMessage);
+}
 
 // 手動分析按鈕 - 使用真實 AI 建議
 document.getElementById('manualAnalyzeBtn').addEventListener('click', async (e) => {
@@ -1316,7 +1470,6 @@ print("這是第 1 題 ✅")`,
       if (saved) {
         monacoEditor.setValue(saved);
         stats.lastCodeContent = saved;
-        if (saveHint) saveHint.textContent = "已載入本機儲存";
       }
     } catch (e) {}
 
