@@ -957,6 +957,48 @@ function addChatMessage(content, isUser = false, messageId = null) {
   return uniqueId;
 }
 
+// 添加載入動畫訊息
+function addLoadingMessage() {
+  const chatHistory = document.getElementById('chatHistory');
+  if (!chatHistory) return null;
+
+  const uniqueId = `loading-${Date.now()}`;
+  const messageDiv = document.createElement('div');
+  messageDiv.id = uniqueId;
+  messageDiv.className = 'flex justify-start';
+  
+  const bubble = document.createElement('div');
+  bubble.className = 'max-w-[80%] rounded-lg px-4 py-3 bg-gray-100 text-gray-800';
+  bubble.innerHTML = `
+    <div class="flex items-center gap-2">
+      <div class="flex gap-1">
+        <div class="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+        <div class="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+        <div class="w-2 h-2 bg-indigo-600 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+      </div>
+      <span class="text-sm text-gray-600">老師正在思考中...</span>
+    </div>
+  `;
+  
+  messageDiv.appendChild(bubble);
+  chatHistory.appendChild(messageDiv);
+  
+  // 自動滾動到底部
+  setTimeout(scrollChatToBottom, 100);
+  
+  return uniqueId;
+}
+
+// 移除載入動畫訊息
+function removeLoadingMessage(loadingId) {
+  if (loadingId) {
+    const loadingMessage = document.getElementById(loadingId);
+    if (loadingMessage) {
+      loadingMessage.remove();
+    }
+  }
+}
+
 // 發送對話訊息（使用流式輸出）
 async function sendChatMessage() {
   const chatInput = document.getElementById('chatInput');
@@ -970,7 +1012,10 @@ async function sendChatMessage() {
   // 顯示使用者訊息
   addChatMessage(userMessage, true);
   
-  // 顯示載入中
+  // 顯示載入動畫
+  const loadingId = addLoadingMessage();
+  
+  // 禁用發送按鈕
   chatSendBtn.disabled = true;
   chatSendBtn.textContent = '思考中...';
   
@@ -994,7 +1039,13 @@ async function sendChatMessage() {
       current_output: output,
       last_score: stats.lastAiScore,
       last_score_code: stats.lastAiScoreCode,
-      last_score_output: stats.lastAiScoreOutput
+      last_score_output: stats.lastAiScoreOutput,
+      stats: {
+        run_count: stats.runCount,
+        error_count: stats.errorCount,
+        success_rate: stats.runCount ? Math.round((stats.successfulRuns / stats.runCount) * 100) : 0,
+        modifications: stats.codeModifications
+      }
     };
     
     // 呼叫對話 API（流式輸出）
@@ -1007,6 +1058,9 @@ async function sendChatMessage() {
       },
       body: JSON.stringify(systemContext)
     });
+    
+    // 移除載入動畫
+    removeLoadingMessage(loadingId);
     
     // 檢查是否為流式輸出
     const contentType = response.headers.get('content-type');
@@ -1057,6 +1111,8 @@ async function sendChatMessage() {
     
   } catch (err) {
     console.error('對話錯誤:', err);
+    // 移除載入動畫（如果還存在）
+    removeLoadingMessage(loadingId);
     addChatMessage('抱歉，我現在無法回答。請稍後再試。', false);
   } finally {
     chatSendBtn.disabled = false;
@@ -1095,7 +1151,9 @@ document.getElementById('manualAnalyzeBtn').addEventListener('click', async (e) 
       },
       body: JSON.stringify({
         code: code,
-        stats: statsData
+        stats: statsData,
+        output: document.getElementById('console')?.textContent || '',
+        score: stats.lastAiScore
       })
     });
     
@@ -1104,13 +1162,51 @@ document.getElementById('manualAnalyzeBtn').addEventListener('click', async (e) 
     if (result.success && result.suggestions) {
       const suggestions = result.suggestions;
       
-      // 更新立即行動建議
+      // 更新顯示為引導式學習回饋
       const actionList = document.getElementById('actionList');
       actionList.innerHTML = '';
-      if (suggestions.actions) {
-        suggestions.actions.forEach(action => {
+      
+      // 顯示肯定與現況
+      if (suggestions.affirmation) {
+        const affirmLi = document.createElement('li');
+        affirmLi.innerHTML = `<strong>老師說：</strong>${suggestions.affirmation}`;
+        affirmLi.className = 'text-green-700 font-medium';
+        actionList.appendChild(affirmLi);
+      }
+      
+      if (suggestions.current_status) {
+        const statusLi = document.createElement('li');
+        statusLi.innerHTML = `<strong>目前狀況：</strong>${suggestions.current_status}`;
+        statusLi.className = 'text-blue-700';
+        actionList.appendChild(statusLi);
+      }
+      
+      // 顯示提示
+      if (suggestions.hints && suggestions.hints.length > 0) {
+        const hintsTitle = document.createElement('li');
+        hintsTitle.innerHTML = '<strong>💡 提示：</strong>';
+        hintsTitle.className = 'mt-2 text-purple-700';
+        actionList.appendChild(hintsTitle);
+        
+        suggestions.hints.forEach(hint => {
           const li = document.createElement('li');
-          li.textContent = action;
+          li.textContent = hint;
+          li.className = 'ml-4 text-sm';
+          actionList.appendChild(li);
+        });
+      }
+      
+      // 顯示後續問題
+      if (suggestions.follow_up_questions && suggestions.follow_up_questions.length > 0) {
+        const questionsTitle = document.createElement('li');
+        questionsTitle.innerHTML = '<strong>🤔 想想看：</strong>';
+        questionsTitle.className = 'mt-2 text-orange-700';
+        actionList.appendChild(questionsTitle);
+        
+        suggestions.follow_up_questions.forEach(question => {
+          const li = document.createElement('li');
+          li.textContent = question;
+          li.className = 'ml-4 text-sm';
           actionList.appendChild(li);
         });
       }
@@ -1118,7 +1214,7 @@ document.getElementById('manualAnalyzeBtn').addEventListener('click', async (e) 
       // 也可以更新弱點分析
       weaknessAnalysis.analyzeWeaknesses();
       
-      aiStatus.textContent = "深度分析完成 ✓";
+      aiStatus.textContent = "引導式分析完成 ✓";
       aiStatus.className = "text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200";
     } else {
       throw new Error(result.error || 'AI 建議失敗');
