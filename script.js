@@ -608,6 +608,9 @@ async function aiCheck() {
         stats.errorCount++;
       }
       
+      // 🆕 自動觸發對話機器人解釋評分結果（立即執行，不延遲）
+      autoExplainScore(analysis, overallScore);
+      
     } else {
       throw new Error(result.error || 'AI 分析失敗');
     }
@@ -1117,6 +1120,129 @@ async function sendChatMessage() {
   } finally {
     chatSendBtn.disabled = false;
     chatSendBtn.textContent = '發送';
+  }
+}
+
+// 自動觸發對話機器人解釋評分結果
+async function autoExplainScore(analysis, overallScore) {
+  console.log('🤖 自動觸發評分解釋 - 總分:', overallScore, '分析:', analysis);
+  
+  const chatMessagesDiv = document.getElementById('chatHistory');
+  if (!chatMessagesDiv) {
+    console.error('❌ 找不到 chatHistory 元素');
+    return;
+  }
+  
+  // 構建評分摘要文字 - 聚焦在當前程式上
+  const timeScore = analysis.time_complexity_score !== undefined ? analysis.time_complexity_score : '-';
+  const spaceScore = analysis.space_complexity_score !== undefined ? analysis.space_complexity_score : '-';
+  const readScore = analysis.readability_score !== undefined ? analysis.readability_score : '-';
+  const stabScore = analysis.stability_score !== undefined ? analysis.stability_score : '-';
+  
+  const scoreMessage = `請針對我當前這段程式碼進行解釋：為什麼得到 ${overallScore} 分？（時間複雜度: ${timeScore}/10, 空間複雜度: ${spaceScore}/10, 可讀性: ${readScore}/10, 穩定性: ${stabScore}/10）哪些地方寫得好？哪些地方需要改進？請具體說明這段程式碼的問題。`;
+  
+  // 顯示自動觸發的用戶訊息（標記為系統自動）
+  const userMsgDiv = document.createElement('div');
+  userMsgDiv.className = 'flex justify-end mb-3';
+  userMsgDiv.innerHTML = `
+    <div class="max-w-[80%]">
+      <div class="bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-2xl px-4 py-2 shadow-md">
+        <div class="flex items-center gap-2 mb-1 opacity-75">
+          <span class="text-xs">🤖 系統自動詢問</span>
+        </div>
+        <div class="text-sm leading-relaxed">${scoreMessage}</div>
+      </div>
+    </div>
+  `;
+  chatMessagesDiv.appendChild(userMsgDiv);
+  chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+  
+  // 顯示載入動畫
+  const loadingId = addLoadingMessage();
+  
+  try {
+    // 構建完整上下文（與 sendChatMessage 相同）
+    const currentQuestion = window.questionsManager?.getCurrentQuestion();
+    const systemContext = {
+      question: currentQuestion ? `${currentQuestion.title}\n${currentQuestion.description}` : '無題目資訊',
+      student_code: getCode(),
+      execution_result: stats.lastAiScoreOutput || '',
+      last_ai_score: stats.lastAiScore || null,
+      last_score_code: stats.lastAiScoreCode || '',
+      last_score_output: stats.lastAiScoreOutput || '',
+      student_question: scoreMessage, // 使用評分解釋請求
+      stats: {
+        run_count: stats.runCount,
+        error_count: stats.errorCount,
+        success_rate: stats.runCount ? Math.round((stats.successfulRuns / stats.runCount) * 100) : 0,
+        modifications: stats.codeModifications
+      }
+    };
+    
+    // 呼叫對話 API（流式輸出）
+    const response = await fetch(API_ENDPOINTS.aiChat, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+        'User-Agent': 'PythonDiagnosticPlatform'
+      },
+      body: JSON.stringify(systemContext)
+    });
+    
+    // 移除載入動畫
+    removeLoadingMessage(loadingId);
+    
+    // 檢查是否為流式輸出
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('text/event-stream')) {
+      // 流式輸出處理
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let aiMessageId = null;
+      let accumulatedText = '';
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') break;
+            
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.text) {
+                accumulatedText += parsed.text;
+                // 更新或創建 AI 訊息
+                aiMessageId = addChatMessage(accumulatedText, false, aiMessageId);
+              }
+            } catch (e) {
+              console.error('解析流式數據錯誤:', e);
+            }
+          }
+        }
+      }
+    } else {
+      // 非流式輸出（後備方案）
+      const result = await response.json();
+      
+      if (result.success && result.reply) {
+        addChatMessage(result.reply, false);
+      } else {
+        throw new Error(result.error || '對話失敗');
+      }
+    }
+    
+  } catch (err) {
+    console.error('自動評分解釋錯誤:', err);
+    // 移除載入動畫（如果還存在）
+    removeLoadingMessage(loadingId);
+    addChatMessage('抱歉，無法自動解釋評分結果。', false);
   }
 }
 
