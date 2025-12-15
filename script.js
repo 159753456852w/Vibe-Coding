@@ -4,6 +4,133 @@ let monacoEditor = null;
 // 後端API配置 - 僅使用 Ngrok 模式
 const API_BASE_URL = window.API_CONFIG_EXTERNAL?.API_URL || 'https://karissa-unsiding-graphemically.ngrok-free.dev';
 
+// 提示詞測試管理
+const promptTester = {
+  customPrompts: {
+    analyze: null,
+    check: null,
+    suggest: null,
+    chat: null
+  },
+  defaultPrompts: {
+    analyze: `你是一位專業的 Python 程式教學專家。請全面分析以下學生的程式碼：
+
+【題目要求】
+{question}
+
+【學生程式碼】
+\`\`\`python
+{code}
+\`\`\`
+
+【程式執行結果】
+{output}
+
+【預期輸出】
+{expected_output}
+
+請提供以下六項評估：
+
+1. **feedback**: 針對程式的整體評語，包括：
+   - 程式碼是否正確
+   - 輸出是否符合預期
+   - 具體的改進建議（3-5點）
+   - 語法錯誤或邏輯問題（如果有）
+
+2. **overall_score**: 程式整體評分 (0-100)
+   - 綜合考量所有面向的表現
+
+3. **time_complexity_score**: 時間複雜度評分 (0-10)
+   - 評估演算法效率
+   - 是否有不必要的迴圈或重複計算
+   - 是否使用最佳化的資料結構
+
+4. **space_complexity_score**: 空間複雜度評分 (0-10)
+   - 評估記憶體使用效率
+   - 是否有不必要的變數或資料結構
+   - 是否可以更精簡
+
+5. **readability_score**: 程式易讀性評分 (0-10)
+   - 變數命名是否清晰
+   - 程式碼結構是否清楚
+   - 是否有適當的註解
+   - 程式碼風格是否一致
+
+6. **stability_score**: 程式穩定性評分 (0-10)
+   - 是否有錯誤處理機制
+   - 是否考慮邊界條件
+   - 是否有潛在的執行時錯誤
+
+**重要**: 
+- overall_score 是 0-100 分
+- time_complexity_score, space_complexity_score, readability_score, stability_score 都是 0-10 分
+- 請確保評分在指定範圍內
+
+請用繁體中文回覆，並確保評分合理反映程式品質。`,
+    check: `快速檢查這段 Python 程式：
+
+程式碼：
+{code}
+
+實際輸出：
+{output}
+
+預期輸出：
+{expected_output}
+
+請回答：
+1. 輸出是否完全一致？（是/否）
+2. 給予分數 (0-100)
+3. 如果不一致，指出差異在哪裡
+
+用 JSON 格式回覆：
+{
+    "match": true/false,
+    "score": 85,
+    "differences": ["差異1", "差異2"]
+}`,
+    suggest: `你是一位專業且親切的程式設計老師，使用「引導式學習」教導學生寫程式。
+
+【教學規則】
+1. 不直接給完整答案，先用問題與提示一步步引導學生自己思考
+2. 每次回覆時，都要先肯定學生的一小部分（例如：哪段想法是對的、哪裡寫得不錯）
+3. 根據學生的程式碼，說明目前狀況是否正確，若有錯誤，用簡單的話說明問題點，並給 1～3 個提示讓學生自己修正
+4. 在回覆結尾，一定要主動提出 3～5 個相關且能深化理解的「後續問題」，格式為 Q1、Q2、Q3...
+5. 回覆語氣友善、清楚，用繁體中文（台灣用語），讓學生感到被支持、陪伴，而不是被糾正
+
+【當前教學情境】
+學生得分：{score}
+
+程式碼內容：
+\`\`\`python
+{code}
+\`\`\`
+
+執行結果：
+{output}
+
+學習統計：
+- 執行次數：{run_count}
+- 錯誤次數：{error_count}
+- 成功率：{success_rate}%
+- 修改次數：{modifications}
+在回覆結尾，一定要主動提出 3～5 個相關且能深化理解的「後續問題」，格式為 Q1、Q2、Q3...`,
+    chat: `你是一位專業且親切的程式設計老師，使用「引導式學習」教導學生寫程式。
+
+【教學規則】
+1. 不直接給完整答案，先用問題與提示一步步引導學生自己思考
+2. 每次回覆時，都要先肯定學生的一小部分（例如：哪段想法是對的、哪裡寫得不錯）
+3. 根據學生的程式碼，說明目前狀況是否正確，若有錯誤，用簡單的話說明問題點，並給 1～3 個提示讓學生自己修正
+4. 在回覆結尾，一定要主動提出 3～5 個相關且能深化理解的「後續問題」，格式為 Q1、Q2、Q3...
+5. 回覆語氣友善、清楚，用繁體中文（台灣用語），讓學生感到被支持、陪伴，而不是被糾正
+6. 除非學生明確要求「請直接給我完整答案」，否則不要一次貼出完整解答程式碼，只能貼關鍵片段或偽碼做提示
+
+{context}`
+  },
+  isTestMode: false,
+  currentType: 'analyze'
+};
+
 // 獲取當前 API URL
 function getApiBaseUrl() {
   return API_BASE_URL;
@@ -469,6 +596,20 @@ async function aiCheck() {
       ).join('\n');
     }
 
+    // 準備請求數據
+    const requestData = {
+      code: code,
+      output: runText,
+      expected_output: expectedOutputText,
+      question: `${currentQuestion.title}\n${currentQuestion.description}`
+    };
+
+    // 🧪 如果提示詞測試模式啟用，添加自訂提示詞
+    if (promptTester.isTestMode && promptTester.customPrompts.analyze) {
+      requestData.custom_prompt = promptTester.customPrompts.analyze;
+      console.log('🧪 使用自訂 analyze 提示詞');
+    }
+
     // 呼叫 AI 分析 API
     const response = await fetch(API_ENDPOINTS.aiAnalyze, {
       method: 'POST',
@@ -477,12 +618,7 @@ async function aiCheck() {
         'ngrok-skip-browser-warning': 'true',
         'User-Agent': 'PythonDiagnosticPlatform'
       },
-      body: JSON.stringify({
-        code: code,
-        output: runText,
-        expected_output: expectedOutputText,
-        question: `${currentQuestion.title}\n${currentQuestion.description}`
-      })
+      body: JSON.stringify(requestData)
     });
 
     const result = await response.json();
@@ -1050,6 +1186,12 @@ async function sendChatMessage() {
         modifications: stats.codeModifications
       }
     };
+
+    // 🧪 如果提示詞測試模式啟用，添加自訂提示詞
+    if (promptTester.isTestMode && promptTester.customPrompts.chat) {
+      systemContext.custom_prompt = promptTester.customPrompts.chat;
+      console.log('🧪 使用自訂 chat 提示詞');
+    }
     
     // 呼叫對話 API（流式輸出）
     const response = await fetch(API_ENDPOINTS.aiChat, {
@@ -1251,111 +1393,6 @@ const chatSendBtn = document.getElementById('chatSendBtn');
 if (chatSendBtn) {
   chatSendBtn.addEventListener('click', sendChatMessage);
 }
-
-// 手動分析按鈕 - 使用真實 AI 建議
-document.getElementById('manualAnalyzeBtn').addEventListener('click', async (e) => {
-  e.preventDefault();
-  aiStatus.textContent = "AI 深度分析中...";
-  aiStatus.className = "text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 border border-yellow-200";
-  
-  try {
-    const code = getCode();
-    const statsData = {
-      run_count: stats.runCount,
-      error_count: stats.errorCount,
-      success_rate: stats.runCount ? Math.round((stats.successfulRuns / stats.runCount) * 100) : 0,
-      modifications: stats.codeModifications
-    };
-    
-    // 呼叫 AI 建議 API
-    const response = await fetch(API_ENDPOINTS.aiSuggest, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'ngrok-skip-browser-warning': 'true',
-        'User-Agent': 'PythonDiagnosticPlatform'
-      },
-      body: JSON.stringify({
-        code: code,
-        stats: statsData,
-        output: document.getElementById('console')?.textContent || '',
-        score: stats.lastAiScore
-      })
-    });
-    
-    const result = await response.json();
-    
-    if (result.success && result.suggestions) {
-      const suggestions = result.suggestions;
-      
-      // 更新顯示為引導式學習回饋
-      const actionList = document.getElementById('actionList');
-      actionList.innerHTML = '';
-      
-      // 顯示肯定與現況
-      if (suggestions.affirmation) {
-        const affirmLi = document.createElement('li');
-        affirmLi.innerHTML = `<strong>老師說：</strong>${suggestions.affirmation}`;
-        affirmLi.className = 'text-green-700 font-medium';
-        actionList.appendChild(affirmLi);
-      }
-      
-      if (suggestions.current_status) {
-        const statusLi = document.createElement('li');
-        statusLi.innerHTML = `<strong>目前狀況：</strong>${suggestions.current_status}`;
-        statusLi.className = 'text-blue-700';
-        actionList.appendChild(statusLi);
-      }
-      
-      // 顯示提示
-      if (suggestions.hints && suggestions.hints.length > 0) {
-        const hintsTitle = document.createElement('li');
-        hintsTitle.innerHTML = '<strong>💡 提示：</strong>';
-        hintsTitle.className = 'mt-2 text-purple-700';
-        actionList.appendChild(hintsTitle);
-        
-        suggestions.hints.forEach(hint => {
-          const li = document.createElement('li');
-          li.textContent = hint;
-          li.className = 'ml-4 text-sm';
-          actionList.appendChild(li);
-        });
-      }
-      
-      // 顯示後續問題
-      if (suggestions.follow_up_questions && suggestions.follow_up_questions.length > 0) {
-        const questionsTitle = document.createElement('li');
-        questionsTitle.innerHTML = '<strong>🤔 想想看：</strong>';
-        questionsTitle.className = 'mt-2 text-orange-700';
-        actionList.appendChild(questionsTitle);
-        
-        suggestions.follow_up_questions.forEach(question => {
-          const li = document.createElement('li');
-          li.textContent = question;
-          li.className = 'ml-4 text-sm';
-          actionList.appendChild(li);
-        });
-      }
-      
-      // 也可以更新弱點分析
-      weaknessAnalysis.analyzeWeaknesses();
-      
-      aiStatus.textContent = "引導式分析完成 ✓";
-      aiStatus.className = "text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200";
-    } else {
-      throw new Error(result.error || 'AI 建議失敗');
-    }
-    
-  } catch (err) {
-    console.error('AI 建議失敗:', err);
-    
-    // 使用本地分析作為後備
-    weaknessAnalysis.analyzeWeaknesses();
-    
-    aiStatus.textContent = "使用本地分析";
-    aiStatus.className = "text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200";
-  }
-});
 
 // 學習進度初始化
 async function initFromStorage() {
@@ -1702,9 +1739,221 @@ print("這是第 1 題 ✅")`,
   });
 }
 
+// ==================== 提示詞編輯器功能 ====================
+let currentEditingPromptType = null;
+
+function initPromptEditor() {
+  const textarea = document.getElementById('promptTextarea');
+  const resetBtn = document.getElementById('resetPromptBtn');
+  const copyBtn = document.getElementById('copyPromptBtn');
+  const testBtn = document.getElementById('testPromptBtn');
+  const charCount = document.getElementById('charCount');
+
+  // 字數統計
+  textarea?.addEventListener('input', () => {
+    if (charCount) {
+      charCount.textContent = textarea.value.length;
+    }
+  });
+
+  // 重置為預設
+  resetBtn?.addEventListener('click', () => {
+    if (!currentEditingPromptType) return;
+    const type = currentEditingPromptType;
+    textarea.value = promptTester.defaultPrompts[type];
+    promptTester.customPrompts[type] = null;
+    updatePromptStatus(type, false);
+    showNotification('已重置為預設提示詞', 'info');
+    if (charCount) charCount.textContent = textarea.value.length;
+  });
+
+  // 複製提示詞
+  copyBtn?.addEventListener('click', () => {
+    if (textarea) {
+      textarea.select();
+      document.execCommand('copy');
+      showNotification('提示詞已複製到剪貼簿', 'success');
+    }
+  });
+
+  // 測試提示詞
+  testBtn?.addEventListener('click', () => {
+    if (!currentEditingPromptType) return;
+    const type = currentEditingPromptType;
+    const customPrompt = textarea.value.trim();
+    
+    if (!customPrompt) {
+      showNotification('提示詞內容不能為空', 'error');
+      return;
+    }
+
+    promptTester.customPrompts[type] = customPrompt;
+    promptTester.isTestMode = true;
+    updatePromptStatus(type, true);
+    updatePromptPreview(type, customPrompt);
+    closePromptEditor();
+    
+    showNotification(`已啟用 ${getPromptTypeName(type)} 測試模式`, 'success');
+    console.log(`🧪 提示詞測試模式已啟用 (${type}):`, customPrompt.substring(0, 100) + '...');
+    
+    // 更新測試模式指示器
+    const indicator = document.getElementById('promptTestModeIndicator');
+    if (indicator) indicator.classList.remove('hidden');
+  });
+
+  // 初始化預覽
+  updateAllPreviews();
+}
+
+// 編輯提示詞
+function editPrompt(type) {
+  currentEditingPromptType = type;
+  const modal = document.getElementById('promptEditorModal');
+  const textarea = document.getElementById('promptTextarea');
+  const title = document.getElementById('modalPromptTitle');
+  const desc = document.getElementById('modalPromptDesc');
+  const charCount = document.getElementById('charCount');
+  
+  if (!modal || !textarea) return;
+  
+  // 設定標題和描述
+  const typeInfo = {
+    analyze: { name: 'analyze_prompt', desc: '程式碼全面分析與評分 - 用於 AI 評分功能' },
+    check: { name: 'check_prompt', desc: '快速輸出檢查 - 用於快速驗證' },
+    suggest: { name: 'suggest_prompt', desc: '引導式學習建議 - 用於學習建議' },
+    chat: { name: 'chat_system_prompt', desc: 'AI 對話系統 - 用於聊天機器人' }
+  };
+  
+  if (title) title.textContent = `編輯 ${typeInfo[type].name}`;
+  if (desc) desc.textContent = typeInfo[type].desc;
+  
+  // 載入當前提示詞
+  const currentPrompt = promptTester.customPrompts[type] || promptTester.defaultPrompts[type];
+  textarea.value = currentPrompt;
+  if (charCount) charCount.textContent = currentPrompt.length;
+  
+  // 顯示模態框
+  modal.classList.remove('hidden');
+}
+
+// 關閉編輯器
+function closePromptEditor() {
+  const modal = document.getElementById('promptEditorModal');
+  if (modal) modal.classList.add('hidden');
+  currentEditingPromptType = null;
+}
+
+// 更新提示詞狀態
+function updatePromptStatus(type, isCustom) {
+  const statusEl = document.getElementById(`${type}-status`);
+  if (statusEl) {
+    if (isCustom) {
+      statusEl.textContent = '🧪 測試模式';
+      statusEl.className = 'text-green-600 font-semibold';
+    } else {
+      statusEl.textContent = '使用預設';
+      statusEl.className = 'text-gray-400';
+    }
+  }
+}
+
+// 更新提示詞預覽
+function updatePromptPreview(type, content) {
+  const previewEl = document.getElementById(`${type}-preview`);
+  if (previewEl) {
+    const preview = content.substring(0, 150) + (content.length > 150 ? '...' : '');
+    previewEl.textContent = preview;
+  }
+}
+
+// 更新所有預覽
+function updateAllPreviews() {
+  ['analyze', 'check', 'suggest', 'chat'].forEach(type => {
+    const prompt = promptTester.customPrompts[type] || promptTester.defaultPrompts[type];
+    updatePromptPreview(type, prompt);
+    updatePromptStatus(type, !!promptTester.customPrompts[type]);
+  });
+}
+
+// 獲取提示詞類型名稱
+function getPromptTypeName(type) {
+  const names = {
+    analyze: 'analyze_prompt',
+    check: 'check_prompt',
+    suggest: 'suggest_prompt',
+    chat: 'chat_system_prompt'
+  };
+  return names[type] || type;
+}
+
+// 重置所有提示詞
+function resetAllPrompts() {
+  if (!confirm('確定要重置所有提示詞為預設值嗎？')) return;
+  
+  ['analyze', 'check', 'suggest', 'chat'].forEach(type => {
+    promptTester.customPrompts[type] = null;
+    updatePromptStatus(type, false);
+    updatePromptPreview(type, promptTester.defaultPrompts[type]);
+  });
+  
+  promptTester.isTestMode = false;
+  const indicator = document.getElementById('promptTestModeIndicator');
+  if (indicator) indicator.classList.add('hidden');
+  
+  showNotification('已重置所有提示詞為預設值', 'success');
+}
+
+// 匯出提示詞設定
+function exportPrompts() {
+  const settings = {
+    analyze: promptTester.customPrompts.analyze || promptTester.defaultPrompts.analyze,
+    check: promptTester.customPrompts.check || promptTester.defaultPrompts.check,
+    suggest: promptTester.customPrompts.suggest || promptTester.defaultPrompts.suggest,
+    chat: promptTester.customPrompts.chat || promptTester.defaultPrompts.chat
+  };
+  
+  const dataStr = JSON.stringify(settings, null, 2);
+  const dataBlob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(dataBlob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `prompts_export_${new Date().getTime()}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+  
+  showNotification('提示詞設定已匯出', 'success');
+}
+
+// 獲取要使用的提示詞（如果有自訂則使用自訂，否則使用預設）
+function getPromptForType(type) {
+  return promptTester.customPrompts[type] || promptTester.defaultPrompts[type];
+}
+
+// 通知函數
+function showNotification(message, type = 'info') {
+  const colors = {
+    success: 'bg-green-500',
+    error: 'bg-red-500',
+    info: 'bg-blue-500',
+    warning: 'bg-yellow-500'
+  };
+
+  const notification = document.createElement('div');
+  notification.className = `fixed top-20 right-6 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300 transform translate-x-0`;
+  notification.textContent = message;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.transform = 'translateX(400px)';
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
 // 當 DOM 載入完成後初始化 Monaco Editor
 document.addEventListener('DOMContentLoaded', () => {
   initializeMonacoEditor();
+  initPromptEditor(); // 初始化提示詞編輯器
   
   // 🎯 初始化 AI 評分系統顯示（清空預設值）
   document.getElementById('mainScore').textContent = '-';

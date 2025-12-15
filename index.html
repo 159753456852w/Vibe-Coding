@@ -81,7 +81,6 @@
             <h4 class="font-semibold text-gray-800">🤖 AI 智能分析與建議</h4>
             <div class="flex items-center gap-2">
               <span id="aiStatus" class="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">就緒</span>
-              <button id="manualAnalyzeBtn" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg transition-colors duration-200">手動分析</button>
             </div>
           </div>
           <!-- AI 分析容器 -->
@@ -170,6 +169,220 @@
             <div class="text-white/90 text-sm">平均分數</div>
             <div id="avgScore" class="text-2xl font-bold mt-1">0</div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 提示詞測試區塊（獨立顯示） -->
+    <section class="bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 rounded-2xl p-6 border-2 border-purple-300 shadow-xl mb-8">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h3 class="text-xl font-bold text-purple-800 flex items-center gap-2">
+            <span>🧪</span>
+            <span>提示詞測試實驗室</span>
+          </h3>
+          <p class="text-sm text-purple-600 mt-1">即時測試與調整 AI 提示詞，不會儲存到檔案</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="promptTestModeIndicator" class="hidden text-xs px-3 py-1.5 rounded-full bg-green-500 text-white font-semibold animate-pulse">
+            ✅ 測試模式啟用中
+          </span>
+        </div>
+      </div>
+
+      <!-- 提示詞卡片網格 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <!-- 1. analyze_prompt -->
+        <div class="bg-white rounded-xl p-5 border-2 border-indigo-200 shadow-md hover:shadow-lg transition-shadow">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h4 class="font-bold text-indigo-800 flex items-center gap-2">
+                <span class="text-xl">🎯</span>
+                <span>analyze_prompt</span>
+              </h4>
+              <p class="text-xs text-gray-600 mt-1">程式碼全面分析與評分</p>
+            </div>
+            <button onclick="editPrompt('analyze')" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg transition-colors font-semibold">
+              ✏️ 編輯
+            </button>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <div class="text-xs text-gray-700 font-mono line-clamp-3 whitespace-pre-wrap" id="analyze-preview">
+你是一位專業的 Python 程式教學專家。請全面分析以下學生的程式碼：
+【題目要求】{question}
+【學生程式碼】{code}...
+            </div>
+          </div>
+          <div class="mt-2 flex items-center justify-between text-xs text-gray-500">
+            <span>📍 用於: AI 評分功能</span>
+            <span id="analyze-status" class="text-gray-400">使用預設</span>
+          </div>
+        </div>
+
+        <!-- 2. check_prompt -->
+        <div class="bg-white rounded-xl p-5 border-2 border-green-200 shadow-md hover:shadow-lg transition-shadow">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h4 class="font-bold text-green-800 flex items-center gap-2">
+                <span class="text-xl">✅</span>
+                <span>check_prompt</span>
+              </h4>
+              <p class="text-xs text-gray-600 mt-1">快速輸出檢查</p>
+            </div>
+            <button onclick="editPrompt('check')" class="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg transition-colors font-semibold">
+              ✏️ 編輯
+            </button>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <div class="text-xs text-gray-700 font-mono line-clamp-3 whitespace-pre-wrap" id="check-preview">
+快速檢查這段 Python 程式：
+程式碼：{code}
+實際輸出：{output}...
+            </div>
+          </div>
+          <div class="mt-2 flex items-center justify-between text-xs text-gray-500">
+            <span>📍 用於: 快速檢查</span>
+            <span id="check-status" class="text-gray-400">使用預設</span>
+          </div>
+        </div>
+
+        <!-- 3. suggest_prompt -->
+        <div class="bg-white rounded-xl p-5 border-2 border-orange-200 shadow-md hover:shadow-lg transition-shadow">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h4 class="font-bold text-orange-800 flex items-center gap-2">
+                <span class="text-xl">💡</span>
+                <span>suggest_prompt</span>
+              </h4>
+              <p class="text-xs text-gray-600 mt-1">引導式學習建議</p>
+            </div>
+            <button onclick="editPrompt('suggest')" class="text-xs bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg transition-colors font-semibold">
+              ✏️ 編輯
+            </button>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <div class="text-xs text-gray-700 font-mono line-clamp-3 whitespace-pre-wrap" id="suggest-preview">
+你是一位專業且親切的程式設計老師，使用「引導式學習」教導學生寫程式。
+【教學規則】
+1. 不直接給完整答案...
+            </div>
+          </div>
+          <div class="mt-2 flex items-center justify-between text-xs text-gray-500">
+            <span>📍 用於: 學習建議</span>
+            <span id="suggest-status" class="text-gray-400">使用預設</span>
+          </div>
+        </div>
+
+        <!-- 4. chat_system_prompt -->
+        <div class="bg-white rounded-xl p-5 border-2 border-blue-200 shadow-md hover:shadow-lg transition-shadow">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h4 class="font-bold text-blue-800 flex items-center gap-2">
+                <span class="text-xl">💬</span>
+                <span>chat_system_prompt</span>
+              </h4>
+              <p class="text-xs text-gray-600 mt-1">AI 對話系統</p>
+            </div>
+            <button onclick="editPrompt('chat')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors font-semibold">
+              ✏️ 編輯
+            </button>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+            <div class="text-xs text-gray-700 font-mono line-clamp-3 whitespace-pre-wrap" id="chat-preview">
+你是一位專業且親切的程式設計老師，使用「引導式學習」教導學生寫程式。
+【教學規則】
+1. 不直接給完整答案...
+            </div>
+          </div>
+          <div class="mt-2 flex items-center justify-between text-xs text-gray-500">
+            <span>📍 用於: AI 聊天機器人</span>
+            <span id="chat-status" class="text-gray-400">使用預設</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 編輯器模態框（隱藏） -->
+      <div id="promptEditorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <!-- 模態框標題 -->
+          <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-5 flex items-center justify-between">
+            <div>
+              <h3 class="text-xl font-bold flex items-center gap-2">
+                <span>✏️</span>
+                <span id="modalPromptTitle">編輯提示詞</span>
+              </h3>
+              <p class="text-sm text-purple-100 mt-1" id="modalPromptDesc">提示詞描述</p>
+            </div>
+            <button onclick="closePromptEditor()" class="text-white hover:text-purple-200 text-3xl leading-none">&times;</button>
+          </div>
+
+          <!-- 編輯器內容 -->
+          <div class="flex-1 overflow-y-auto p-6">
+            <div class="mb-4">
+              <div class="flex items-center justify-between mb-2">
+                <label class="block text-sm font-semibold text-gray-700">提示詞內容：</label>
+                <div class="flex gap-2">
+                  <button id="resetPromptBtn" class="text-xs bg-gray-500 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg transition-colors">
+                    🔄 重置為預設
+                  </button>
+                  <button id="copyPromptBtn" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg transition-colors">
+                    📋 複製
+                  </button>
+                </div>
+              </div>
+              <textarea id="promptTextarea" 
+                class="w-full h-96 px-4 py-3 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm bg-white resize-none"
+                placeholder="在此編輯提示詞內容..."></textarea>
+              <div class="flex items-center justify-between mt-2">
+                <div class="text-xs text-gray-500">
+                  💡 使用 {變數名稱} 插入動態內容（如：{code}、{output}、{question}）
+                </div>
+                <div class="text-xs text-gray-500">
+                  字數：<span id="charCount">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 警告提示 -->
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+              <div class="flex items-start gap-3">
+                <span class="text-yellow-600 text-xl">⚠️</span>
+                <div>
+                  <p class="text-sm font-semibold text-yellow-800">測試模式說明</p>
+                  <ul class="text-xs text-yellow-700 mt-1 space-y-1">
+                    <li>• 修改僅儲存在瀏覽器記憶體，重新整理頁面即清除</li>
+                    <li>• 下次使用對應功能時會套用自訂提示詞</li>
+                    <li>• 若要永久保存，請手動複製到 prompts.json 並重啟伺服器</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 底部按鈕 -->
+          <div class="border-t border-gray-200 p-5 bg-gray-50 flex items-center justify-between">
+            <button onclick="closePromptEditor()" class="px-5 py-2 text-gray-700 hover:text-gray-900 font-medium">
+              取消
+            </button>
+            <button id="testPromptBtn" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-8 py-2 rounded-lg shadow-lg transition-all font-semibold">
+              🚀 啟用測試模式
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 快速操作按鈕 -->
+      <div class="flex items-center justify-between bg-white rounded-xl p-4 border-2 border-purple-200">
+        <div class="flex items-center gap-3">
+          <button onclick="resetAllPrompts()" class="text-sm bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors font-semibold">
+            🔄 全部重置
+          </button>
+          <button onclick="exportPrompts()" class="text-sm bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors font-semibold">
+            💾 匯出設定
+          </button>
+        </div>
+        <div class="text-xs text-gray-500">
+          <span class="font-semibold">提示：</span>點擊任一提示詞的「編輯」按鈕開始測試
         </div>
       </div>
     </section>
