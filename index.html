@@ -1,11 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🐍 Python 智能程式診斷平台</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="styles.css">
+  <!-- Markdown 渲染 -->
+  <script src="lib/marked.min.js"></script>
+  <!-- 程式碼高亮 -->
+  <link rel="stylesheet" href="lib/github.min.css">
+  <script src="lib/highlight.min.js"></script>
+  <script src="lib/python.min.js"></script>
   <!-- Monaco Editor -->
   <script src="https://unpkg.com/monaco-editor@0.44.0/min/vs/loader.js"></script>
   <!-- API 配置 -->
@@ -13,6 +20,7 @@
   <!-- 題目管理器 -->
   <script src="questions-manager.js"></script>
 </head>
+
 <body class="bg-gradient-to-br from-indigo-50 via-blue-50 to-purple-50 min-h-screen">
 
   <!-- 頂部導覽列 -->
@@ -23,7 +31,8 @@
       </h1>
       <div class="flex items-center gap-3">
         <span id="backendStatus" class="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 border">檢查中</span>
-        <span class="text-xs text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full">🌐 Ngrok 模式</span>
+        <span class="text-xs text-indigo-600 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded-full">🌐 Ngrok
+          模式</span>
       </div>
     </div>
   </header>
@@ -50,13 +59,17 @@
             <div class="text-xs text-gray-500">Ctrl + Enter 快速執行</div>
           </div>
 
-          <div id="codeEditor" class="w-full h-56 sm:h-64 rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 overflow-hidden"></div>
+          <div id="codeEditor"
+            class="w-full h-56 sm:h-64 rounded-xl border border-gray-300 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 overflow-hidden">
+          </div>
 
           <div class="flex flex-wrap items-center gap-3 mt-4">
-            <button id="runBtn" class="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-xl shadow transition-colors duration-200">
+            <button id="runBtn"
+              class="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-xl shadow transition-colors duration-200">
               ▶️ 執行程式
             </button>
-            <button id="aiCheckBtn" class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow transition-colors duration-200">
+            <button id="aiCheckBtn"
+              class="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl shadow transition-colors duration-200">
               🎯 AI評分
             </button>
           </div>
@@ -68,7 +81,9 @@
             <h4 class="font-semibold text-gray-800">🖥️ 執行結果</h4>
             <span id="runStatus" class="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 border">等待中</span>
           </div>
-          <div class="terminal text-green-200 rounded-xl p-4 h-56 sm:h-64 overflow-auto scrollbar-thin border border-slate-700/40" id="outputBox">
+          <div
+            class="terminal text-green-200 rounded-xl p-4 h-56 sm:h-64 overflow-auto scrollbar-thin border border-slate-700/40"
+            id="outputBox">
             等待程式執行...
           </div>
         </section>
@@ -76,11 +91,13 @@
 
       <!-- 右側欄位 (1/3 寬度): AI 智能分析 -->
       <div class="lg:col-span-1">
-        <section class="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 shadow-lg card-hover h-[42rem] sm:h-[47rem] flex flex-col">
+        <section
+          class="bg-white rounded-2xl p-4 sm:p-5 border border-gray-200 shadow-lg card-hover h-[42rem] sm:h-[47rem] flex flex-col">
           <div class="flex items-center justify-between mb-4 flex-shrink-0">
             <h4 class="font-semibold text-gray-800">🤖 AI 智能分析與建議</h4>
             <div class="flex items-center gap-2">
-              <span id="aiStatus" class="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">就緒</span>
+              <span id="aiStatus"
+                class="text-xs px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">就緒</span>
             </div>
           </div>
           <!-- AI 分析容器 -->
@@ -88,14 +105,16 @@
             <!-- 評分結果區域（常駐顯示在最上方，固定高度） -->
             <div id="scoreDisplayArea" class="flex-shrink-0 mb-3 h-[280px]">
               <!-- 預設顯示無評分狀態 -->
-              <div id="noScoreYet" class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center h-full flex flex-col items-center justify-center">
+              <div id="noScoreYet"
+                class="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center h-full flex flex-col items-center justify-center">
                 <div class="text-gray-400 text-sm">📊 尚無評分紀錄</div>
                 <div class="text-xs text-gray-400 mt-1">點擊「AI評分」進行評分</div>
               </div>
             </div>
 
             <!-- 對話機器人區域 -->
-            <div class="flex-1 flex flex-col bg-gradient-to-br from-slate-50 to-white rounded-xl border border-gray-200 overflow-hidden min-h-0">
+            <div
+              class="flex-1 flex flex-col bg-gradient-to-br from-slate-50 to-white rounded-xl border border-gray-200 overflow-hidden min-h-0">
               <!-- 對話歷史（固定高度，可滾動） -->
               <div id="chatHistory" class="flex-1 overflow-y-auto p-4 space-y-3">
                 <div class="text-sm text-gray-500 text-center py-4">
@@ -106,17 +125,11 @@
               <!-- 輸入框 -->
               <div class="flex-shrink-0 border-t border-gray-200 bg-white p-3">
                 <div class="flex gap-2">
-                  <input 
-                    type="text" 
-                    id="chatInput" 
-                    placeholder="輸入問題... (會自動附上程式碼與執行結果)" 
+                  <input type="text" id="chatInput" placeholder="輸入問題... (會自動附上程式碼與執行結果)"
                     class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
-                    onkeypress="if(event.key==='Enter') document.getElementById('chatSendBtn').click()"
-                  />
-                  <button 
-                    id="chatSendBtn" 
-                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                  >
+                    onkeypress="if(event.key==='Enter') document.getElementById('chatSendBtn').click()" />
+                  <button id="chatSendBtn"
+                    class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium">
                     發送
                   </button>
                 </div>
@@ -145,7 +158,8 @@
         <div class="bg-white/15 rounded-2xl p-4 sm:p-6 backdrop-blur border border-white/20 shadow-lg mb-6">
           <div class="flex items-center justify-between mb-2">
             <div class="text-sm sm:text-base">完成度</div>
-            <div class="text-sm"><span id="progressCount" class="font-semibold">0</span>/<span id="totalQuestions">10</span> 題目完成</div>
+            <div class="text-sm"><span id="progressCount" class="font-semibold">0</span>/<span
+                id="totalQuestions">10</span> 題目完成</div>
           </div>
           <div class="w-full h-3 bg-white/25 rounded-full overflow-hidden">
             <div id="progressBar" class="h-3 bg-white rounded-full transition-all duration-300" style="width:0%"></div>
@@ -174,7 +188,8 @@
     </section>
 
     <!-- 提示詞測試區塊（獨立顯示） -->
-    <section class="bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 rounded-2xl p-6 border-2 border-purple-300 shadow-xl mb-8">
+    <section
+      class="bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 rounded-2xl p-6 border-2 border-purple-300 shadow-xl mb-8">
       <div class="flex items-center justify-between mb-6">
         <div>
           <h3 class="text-xl font-bold text-purple-800 flex items-center gap-2">
@@ -184,7 +199,8 @@
           <p class="text-sm text-purple-600 mt-1">即時測試與調整 AI 提示詞，不會儲存到檔案</p>
         </div>
         <div class="flex items-center gap-2">
-          <span id="promptTestModeIndicator" class="hidden text-xs px-3 py-1.5 rounded-full bg-green-500 text-white font-semibold animate-pulse">
+          <span id="promptTestModeIndicator"
+            class="hidden text-xs px-3 py-1.5 rounded-full bg-green-500 text-white font-semibold animate-pulse">
             ✅ 測試模式啟用中
           </span>
         </div>
@@ -202,15 +218,16 @@
               </h4>
               <p class="text-xs text-gray-600 mt-1">程式碼全面分析與評分</p>
             </div>
-            <button onclick="editPrompt('analyze')" class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg transition-colors font-semibold">
+            <button onclick="editPrompt('analyze')"
+              class="text-xs bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg transition-colors font-semibold">
               ✏️ 編輯
             </button>
           </div>
           <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
             <div class="text-xs text-gray-700 font-mono line-clamp-3 whitespace-pre-wrap" id="analyze-preview">
-你是一位專業的 Python 程式教學專家。請全面分析以下學生的程式碼：
-【題目要求】{question}
-【學生程式碼】{code}...
+              你是一位專業的 Python 程式教學專家。請全面分析以下學生的程式碼：
+              【題目要求】{question}
+              【學生程式碼】{code}...
             </div>
           </div>
           <div class="mt-2 flex items-center justify-between text-xs text-gray-500">
@@ -229,15 +246,16 @@
               </h4>
               <p class="text-xs text-gray-600 mt-1">快速輸出檢查</p>
             </div>
-            <button onclick="editPrompt('check')" class="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg transition-colors font-semibold">
+            <button onclick="editPrompt('check')"
+              class="text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg transition-colors font-semibold">
               ✏️ 編輯
             </button>
           </div>
           <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
             <div class="text-xs text-gray-700 font-mono line-clamp-3 whitespace-pre-wrap" id="check-preview">
-快速檢查這段 Python 程式：
-程式碼：{code}
-實際輸出：{output}...
+              快速檢查這段 Python 程式：
+              程式碼：{code}
+              實際輸出：{output}...
             </div>
           </div>
           <div class="mt-2 flex items-center justify-between text-xs text-gray-500">
@@ -256,15 +274,16 @@
               </h4>
               <p class="text-xs text-gray-600 mt-1">引導式學習建議</p>
             </div>
-            <button onclick="editPrompt('suggest')" class="text-xs bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg transition-colors font-semibold">
+            <button onclick="editPrompt('suggest')"
+              class="text-xs bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded-lg transition-colors font-semibold">
               ✏️ 編輯
             </button>
           </div>
           <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
             <div class="text-xs text-gray-700 font-mono line-clamp-3 whitespace-pre-wrap" id="suggest-preview">
-你是一位專業且親切的程式設計老師，使用「引導式學習」教導學生寫程式。
-【教學規則】
-1. 不直接給完整答案...
+              你是一位專業且親切的程式設計老師，使用「引導式學習」教導學生寫程式。
+              【教學規則】
+              1. 不直接給完整答案...
             </div>
           </div>
           <div class="mt-2 flex items-center justify-between text-xs text-gray-500">
@@ -283,15 +302,16 @@
               </h4>
               <p class="text-xs text-gray-600 mt-1">AI 對話系統</p>
             </div>
-            <button onclick="editPrompt('chat')" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors font-semibold">
+            <button onclick="editPrompt('chat')"
+              class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors font-semibold">
               ✏️ 編輯
             </button>
           </div>
           <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
             <div class="text-xs text-gray-700 font-mono line-clamp-3 whitespace-pre-wrap" id="chat-preview">
-你是一位專業且親切的程式設計老師，使用「引導式學習」教導學生寫程式。
-【教學規則】
-1. 不直接給完整答案...
+              你是一位專業且親切的程式設計老師，使用「引導式學習」教導學生寫程式。
+              【教學規則】
+              1. 不直接給完整答案...
             </div>
           </div>
           <div class="mt-2 flex items-center justify-between text-xs text-gray-500">
@@ -302,7 +322,8 @@
       </div>
 
       <!-- 編輯器模態框（隱藏） -->
-      <div id="promptEditorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div id="promptEditorModal"
+        class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
           <!-- 模態框標題 -->
           <div class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-5 flex items-center justify-between">
@@ -313,7 +334,8 @@
               </h3>
               <p class="text-sm text-purple-100 mt-1" id="modalPromptDesc">提示詞描述</p>
             </div>
-            <button onclick="closePromptEditor()" class="text-white hover:text-purple-200 text-3xl leading-none">&times;</button>
+            <button onclick="closePromptEditor()"
+              class="text-white hover:text-purple-200 text-3xl leading-none">&times;</button>
           </div>
 
           <!-- 編輯器內容 -->
@@ -322,15 +344,17 @@
               <div class="flex items-center justify-between mb-2">
                 <label class="block text-sm font-semibold text-gray-700">提示詞內容：</label>
                 <div class="flex gap-2">
-                  <button id="resetPromptBtn" class="text-xs bg-gray-500 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg transition-colors">
+                  <button id="resetPromptBtn"
+                    class="text-xs bg-gray-500 hover:bg-gray-600 text-white px-3 py-1.5 rounded-lg transition-colors">
                     🔄 重置為預設
                   </button>
-                  <button id="copyPromptBtn" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg transition-colors">
+                  <button id="copyPromptBtn"
+                    class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg transition-colors">
                     📋 複製
                   </button>
                 </div>
               </div>
-              <textarea id="promptTextarea" 
+              <textarea id="promptTextarea"
                 class="w-full h-96 px-4 py-3 border-2 border-purple-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm bg-white resize-none"
                 placeholder="在此編輯提示詞內容..."></textarea>
               <div class="flex items-center justify-between mt-2">
@@ -364,7 +388,8 @@
             <button onclick="closePromptEditor()" class="px-5 py-2 text-gray-700 hover:text-gray-900 font-medium">
               取消
             </button>
-            <button id="testPromptBtn" class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-8 py-2 rounded-lg shadow-lg transition-all font-semibold">
+            <button id="testPromptBtn"
+              class="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-8 py-2 rounded-lg shadow-lg transition-all font-semibold">
               🚀 啟用測試模式
             </button>
           </div>
@@ -374,10 +399,12 @@
       <!-- 快速操作按鈕 -->
       <div class="flex items-center justify-between bg-white rounded-xl p-4 border-2 border-purple-200">
         <div class="flex items-center gap-3">
-          <button onclick="resetAllPrompts()" class="text-sm bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors font-semibold">
+          <button onclick="resetAllPrompts()"
+            class="text-sm bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors font-semibold">
             🔄 全部重置
           </button>
-          <button onclick="exportPrompts()" class="text-sm bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors font-semibold">
+          <button onclick="exportPrompts()"
+            class="text-sm bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors font-semibold">
             💾 匯出設定
           </button>
         </div>
@@ -402,7 +429,8 @@
               <span id="mouseMoveCount" class="text-indigo-700 font-semibold">0</span>
             </div>
             <div class="w-full h-2 bg-indigo-100 rounded-full overflow-hidden mt-1">
-              <div id="mouseMoveBar" class="h-2 bg-indigo-500 rounded-full transition-all duration-300" style="width:0%"></div>
+              <div id="mouseMoveBar" class="h-2 bg-indigo-500 rounded-full transition-all duration-300"
+                style="width:0%"></div>
             </div>
             <div class="text-xs text-gray-500 mt-1">活躍度：<span id="mouseMoveActive">0%</span></div>
           </div>
@@ -414,7 +442,8 @@
               <span id="clickCount" class="text-green-700 font-semibold">0</span>
             </div>
             <div class="w-full h-2 bg-green-100 rounded-full overflow-hidden mt-1">
-              <div id="clickBar" class="h-2 bg-green-500 rounded-full transition-all duration-300" style="width:0%"></div>
+              <div id="clickBar" class="h-2 bg-green-500 rounded-full transition-all duration-300" style="width:0%">
+              </div>
             </div>
             <div class="text-xs text-gray-500 mt-1">每分鐘：約 <span id="clickPerMin">0</span> 次</div>
           </div>
@@ -426,7 +455,8 @@
               <span id="keyPressCount" class="text-blue-700 font-semibold">0</span>
             </div>
             <div class="w-full h-2 bg-blue-100 rounded-full overflow-hidden mt-1">
-              <div id="keyPressBar" class="h-2 bg-blue-500 rounded-full transition-all duration-300" style="width:0%"></div>
+              <div id="keyPressBar" class="h-2 bg-blue-500 rounded-full transition-all duration-300" style="width:0%">
+              </div>
             </div>
             <div class="text-xs text-gray-500 mt-1">每分鐘：約 <span id="keyPerMin">0</span> 次</div>
           </div>
@@ -438,7 +468,8 @@
               <span id="focusTimeText" class="text-purple-700 font-semibold">00:00</span>
             </div>
             <div class="w-full h-2 bg-purple-100 rounded-full overflow-hidden mt-1">
-              <div id="focusBar" class="h-2 bg-purple-500 rounded-full transition-all duration-300" style="width:0%"></div>
+              <div id="focusBar" class="h-2 bg-purple-500 rounded-full transition-all duration-300" style="width:0%">
+              </div>
             </div>
             <div class="text-xs text-gray-500 mt-1">當前連續專注：<span id="focusStreakText">0s</span></div>
           </div>
@@ -468,13 +499,14 @@
       <!-- 2. AI 評分系統 -->
       <div class="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg card-hover">
         <h4 class="font-semibold text-gray-800 mb-5 flex items-center gap-2">🏆 AI 評分系統</h4>
-        
+
         <!-- 總分圓環 -->
         <div class="flex justify-center mb-6">
           <div class="relative">
             <svg height="180" width="180">
-              <circle cx="90" cy="90" r="75" stroke="#E5E7EB" stroke-width="14" fill="none"/>
-              <circle id="scoreRing" class="progress-ring__circle" cx="90" cy="90" r="75" stroke="#6366F1" stroke-linecap="round" stroke-width="14" fill="none" stroke-dasharray="471" stroke-dashoffset="471"/>
+              <circle cx="90" cy="90" r="75" stroke="#E5E7EB" stroke-width="14" fill="none" />
+              <circle id="scoreRing" class="progress-ring__circle" cx="90" cy="90" r="75" stroke="#6366F1"
+                stroke-linecap="round" stroke-width="14" fill="none" stroke-dasharray="471" stroke-dashoffset="471" />
             </svg>
             <div class="absolute inset-0 flex items-center justify-center">
               <div class="text-center">
@@ -487,7 +519,8 @@
 
         <!-- 四個評分項目 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 border border-indigo-200 shadow-sm hover:shadow-md transition-shadow">
+          <div
+            class="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 border border-indigo-200 shadow-sm hover:shadow-md transition-shadow">
             <div class="flex items-center justify-between mb-2">
               <div class="text-sm text-indigo-700 font-semibold flex items-center gap-2">
                 <span class="text-xl">⏱️</span>
@@ -500,8 +533,9 @@
             </div>
             <div class="text-xs text-indigo-600 mt-1">執行效率評估</div>
           </div>
-          
-          <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200 shadow-sm hover:shadow-md transition-shadow">
+
+          <div
+            class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200 shadow-sm hover:shadow-md transition-shadow">
             <div class="flex items-center justify-between mb-2">
               <div class="text-sm text-purple-700 font-semibold flex items-center gap-2">
                 <span class="text-xl">💾</span>
@@ -514,8 +548,9 @@
             </div>
             <div class="text-xs text-purple-600 mt-1">記憶體使用評估</div>
           </div>
-          
-          <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200 shadow-sm hover:shadow-md transition-shadow">
+
+          <div
+            class="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200 shadow-sm hover:shadow-md transition-shadow">
             <div class="flex items-center justify-between mb-2">
               <div class="text-sm text-green-700 font-semibold flex items-center gap-2">
                 <span class="text-xl">📖</span>
@@ -528,8 +563,9 @@
             </div>
             <div class="text-xs text-green-600 mt-1">代碼品質評估</div>
           </div>
-          
-          <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200 shadow-sm hover:shadow-md transition-shadow">
+
+          <div
+            class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200 shadow-sm hover:shadow-md transition-shadow">
             <div class="flex items-center justify-between mb-2">
               <div class="text-sm text-blue-700 font-semibold flex items-center gap-2">
                 <span class="text-xl">🛡️</span>
@@ -589,7 +625,8 @@
                 <span id="weakSyntax" class="text-red-700 text-sm">70% 頻率</span>
               </div>
               <div class="w-full h-2 bg-red-100 rounded-full overflow-hidden mt-2">
-                <div id="weakSyntaxBar" class="h-2 bg-red-500 rounded-full transition-all duration-300" style="width:70%"></div>
+                <div id="weakSyntaxBar" class="h-2 bg-red-500 rounded-full transition-all duration-300"
+                  style="width:70%"></div>
               </div>
             </div>
             <div class="rounded-xl p-4 border bg-yellow-50 border-yellow-200">
@@ -598,7 +635,8 @@
                 <span id="weakSpeed" class="text-yellow-700 text-sm">45% 頻率</span>
               </div>
               <div class="w-full h-2 bg-yellow-100 rounded-full overflow-hidden mt-2">
-                <div id="weakSpeedBar" class="h-2 bg-yellow-500 rounded-full transition-all duration-300" style="width:45%"></div>
+                <div id="weakSpeedBar" class="h-2 bg-yellow-500 rounded-full transition-all duration-300"
+                  style="width:45%"></div>
               </div>
             </div>
             <div class="rounded-xl p-4 border bg-blue-50 border-blue-200">
@@ -607,7 +645,8 @@
                 <span id="weakNaming" class="text-blue-700 text-sm">30% 頻率</span>
               </div>
               <div class="w-full h-2 bg-blue-100 rounded-full overflow-hidden mt-2">
-                <div id="weakNamingBar" class="h-2 bg-blue-500 rounded-full transition-all duration-300" style="width:30%"></div>
+                <div id="weakNamingBar" class="h-2 bg-blue-500 rounded-full transition-all duration-300"
+                  style="width:30%"></div>
               </div>
             </div>
           </div>
@@ -630,9 +669,12 @@
             <div class="rounded-xl p-4 border bg-purple-50 border-purple-200">
               <div class="font-semibold text-purple-800 mb-1">推薦學習資源</div>
               <ul class="list-disc pl-5 text-sm text-purple-900 space-y-1">
-                <li><a href="https://docs.python.org/zh-tw/3/tutorial/" target="_blank" rel="noopener noreferrer" class="underline hover:text-purple-700">Python 官方教學</a></li>
-                <li><a href="https://www.w3schools.com/python/" target="_blank" rel="noopener noreferrer" class="underline hover:text-purple-700">W3Schools Python</a></li>
-                <li><a href="https://realpython.com/" target="_blank" rel="noopener noreferrer" class="underline hover:text-purple-700">Real Python</a></li>
+                <li><a href="https://docs.python.org/zh-tw/3/tutorial/" target="_blank" rel="noopener noreferrer"
+                    class="underline hover:text-purple-700">Python 官方教學</a></li>
+                <li><a href="https://www.w3schools.com/python/" target="_blank" rel="noopener noreferrer"
+                    class="underline hover:text-purple-700">W3Schools Python</a></li>
+                <li><a href="https://realpython.com/" target="_blank" rel="noopener noreferrer"
+                    class="underline hover:text-purple-700">Real Python</a></li>
               </ul>
             </div>
             <!-- 進度追蹤 -->
@@ -669,5 +711,7 @@
     本平台為前端示範：Python 程式執行為模擬解析，非真實執行環境。
   </footer>
 
-  <script src="script.js"></script></body>
+  <script src="script.js"></script>
+</body>
+
 </html>

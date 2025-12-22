@@ -1063,9 +1063,15 @@ function addChatMessage(content, isUser = false, messageId = null) {
     if (existingMessage) {
       const bubble = existingMessage.querySelector('div[class*="rounded-lg"]');
       if (bubble) {
-        const textDiv = bubble.querySelector('div');
+        const textDiv = bubble.querySelector('div.message-content');
         if (textDiv) {
-          textDiv.innerHTML = content.replace(/\n/g, '<br>');
+          if (isUser) {
+            // 用戶訊息：純文字
+            textDiv.innerHTML = content.replace(/\n/g, '<br>');
+          } else {
+            // AI 訊息：渲染 Markdown
+            textDiv.innerHTML = renderMarkdown(content);
+          }
         }
       }
       setTimeout(scrollChatToBottom, 50);
@@ -1077,15 +1083,26 @@ function addChatMessage(content, isUser = false, messageId = null) {
   const uniqueId = messageId || `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   const messageDiv = document.createElement('div');
   messageDiv.id = uniqueId;
-  messageDiv.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+  messageDiv.className = `flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`;
   
   const bubble = document.createElement('div');
-  bubble.className = `max-w-[80%] rounded-lg px-4 py-2 ${
+  bubble.className = `max-w-[80%] rounded-lg px-4 py-2.5 ${
     isUser 
       ? 'bg-indigo-600 text-white' 
       : 'bg-gray-100 text-gray-800'
   }`;
-  bubble.innerHTML = `<div class="text-sm whitespace-pre-wrap">${content.replace(/\n/g, '<br>')}</div>`;
+  
+  // 根據是否為用戶，使用不同的渲染方式
+  let renderedContent;
+  if (isUser) {
+    // 用戶訊息：純文字，保留換行
+    renderedContent = content.replace(/\n/g, '<br>');
+  } else {
+    // AI 訊息：渲染 Markdown
+    renderedContent = renderMarkdown(content);
+  }
+  
+  bubble.innerHTML = `<div class="text-sm message-content">${renderedContent}</div>`;
   
   messageDiv.appendChild(bubble);
   chatHistory.appendChild(messageDiv);
@@ -1094,6 +1111,55 @@ function addChatMessage(content, isUser = false, messageId = null) {
   setTimeout(scrollChatToBottom, 100);
   
   return uniqueId;
+}
+
+// 🆕 Markdown 渲染函數（類似 ChatGPT）
+function renderMarkdown(content) {
+  if (!content) return '';
+  
+  // 配置 marked.js
+  if (typeof marked !== 'undefined') {
+    marked.setOptions({
+      breaks: true,  // 支援 GitHub 風格的換行
+      gfm: true,     // 支援 GitHub Flavored Markdown
+      highlight: function(code, lang) {
+        // 使用 highlight.js 進行語法高亮
+        if (typeof hljs !== 'undefined' && lang && hljs.getLanguage(lang)) {
+          try {
+            return hljs.highlight(code, { language: lang }).value;
+          } catch (err) {
+            console.error('Highlight error:', err);
+          }
+        }
+        return code;
+      }
+    });
+    
+    // 渲染 Markdown
+    let html = marked.parse(content);
+    
+    // 美化樣式（類似 ChatGPT）
+    html = html
+      .replace(/<p>/g, '<p class="mb-2 leading-relaxed">')
+      .replace(/<ul>/g, '<ul class="list-disc list-inside mb-2 space-y-1">')
+      .replace(/<ol>/g, '<ol class="list-decimal list-inside mb-2 space-y-1">')
+      .replace(/<li>/g, '<li class="ml-2">')
+      .replace(/<h1>/g, '<h1 class="text-xl font-bold mb-2 mt-3">')
+      .replace(/<h2>/g, '<h2 class="text-lg font-bold mb-2 mt-2">')
+      .replace(/<h3>/g, '<h3 class="text-base font-bold mb-1 mt-2">')
+      .replace(/<h4>/g, '<h4 class="text-sm font-bold mb-1 mt-1">')
+      .replace(/<code>/g, '<code class="bg-gray-200 px-1.5 py-0.5 rounded text-xs font-mono text-red-600">')
+      .replace(/<pre>/g, '<pre class="bg-gray-800 text-gray-100 rounded-lg p-3 my-2 overflow-x-auto">')
+      .replace(/<pre class="bg-gray-800 text-gray-100 rounded-lg p-3 my-2 overflow-x-auto"><code class="bg-gray-200 px-1.5 py-0.5 rounded text-xs font-mono text-red-600">/g, '<pre class="bg-gray-800 text-gray-100 rounded-lg p-3 my-2 overflow-x-auto"><code class="!bg-transparent !text-gray-100 !p-0">')
+      .replace(/<blockquote>/g, '<blockquote class="border-l-4 border-indigo-500 pl-3 italic text-gray-600 my-2">')
+      .replace(/<strong>/g, '<strong class="font-semibold">')
+      .replace(/<em>/g, '<em class="italic">');
+    
+    return html;
+  }
+  
+  // 如果 marked.js 未載入，使用簡單的換行處理
+  return content.replace(/\n/g, '<br>');
 }
 
 // 添加載入動畫訊息

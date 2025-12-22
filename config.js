@@ -5,7 +5,7 @@ const CONFIG = {
   // 每次啟動 ngrok 時，URL 可能會改變，請更新此處
   // 執行: ngrok http 5000
   // 然後複製顯示的 Forwarding URL（https://xxxx.ngrok-free.app）
-  API_URL: 'https://karissa-unsiding-graphemically.ngrok-free.dev'
+  API_URL: 'http://localhost:5000'
 };
 
 // 如果從 HTML 引入，將配置暴露到全局

@@ -15,3 +15,65 @@
   transform: rotate(-90deg);
   transform-origin: 50% 50%;
 }
+
+/* Markdown 訊息樣式（類似 ChatGPT） */
+.message-content {
+  line-height: 1.6;
+  word-wrap: break-word;
+}
+
+.message-content p:last-child {
+  margin-bottom: 0 !important;
+}
+
+.message-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+.message-content pre {
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.message-content pre code {
+  display: block;
+  overflow-x: auto;
+  padding: 0;
+  background: transparent !important;
+  color: inherit !important;
+}
+
+.message-content ul, .message-content ol {
+  padding-left: 0.5rem;
+}
+
+.message-content blockquote p {
+  margin-bottom: 0;
+}
+
+.message-content a {
+  color: #3b82f6;
+  text-decoration: underline;
+}
+
+.message-content a:hover {
+  color: #2563eb;
+}
+
+.message-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
+.message-content table th,
+.message-content table td {
+  border: 1px solid #e5e7eb;
+  padding: 0.5rem;
+  text-align: left;
+}
+
+.message-content table th {
+  background-color: #f3f4f6;
+  font-weight: 600;
+}
