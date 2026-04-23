@@ -137,16 +137,16 @@ function getApiBaseUrl() {
 }
 
 
-// 後端API配置對象（使用 Ngrok URL）
+// 後端API配置對象（使用代理 URL，已添加 /api1 前綴）
 const API_ENDPOINTS = {
-  get execute() { return `${getApiBaseUrl()}/api/execute`; },
-  get validate() { return `${getApiBaseUrl()}/api/validate`; },
-  get status() { return `${getApiBaseUrl()}/api/status`; },
-  get restart() { return `${getApiBaseUrl()}/api/restart`; },
-  get aiAnalyze() { return `${getApiBaseUrl()}/api/ai/analyze`; },
-  get aiCheck() { return `${getApiBaseUrl()}/api/ai/check`; },
-  get aiSuggest() { return `${getApiBaseUrl()}/api/ai/suggest`; },
-  get aiChat() { return `${getApiBaseUrl()}/api/ai/chat`; }
+  get execute() { return `${getApiBaseUrl()}/api1/api/execute`; },
+  get validate() { return `${getApiBaseUrl()}/api1/api/validate`; },
+  get status() { return `${getApiBaseUrl()}/api1/api/status`; },
+  get restart() { return `${getApiBaseUrl()}/api1/api/restart`; },
+  get aiAnalyze() { return `${getApiBaseUrl()}/api1/api/ai/analyze`; },
+  get aiCheck() { return `${getApiBaseUrl()}/api1/api/ai/check`; },
+  get aiSuggest() { return `${getApiBaseUrl()}/api1/api/ai/suggest`; },
+  get aiChat() { return `${getApiBaseUrl()}/api1/api/ai/chat`; }
 };
 
 // 狀態資料結構
@@ -167,10 +167,10 @@ const stats = {
   // 學習進度
   completedQuestions: 0, totalQuestions: 10, codeModifications: 0,
   totalScores: [], averageScore: 0, lastCodeContent: "",
-
+  
   // 學生資訊
   studentName: localStorage.getItem('studentName') || '',
-
+  
   // AI 評分記錄
   lastAiScore: null,
   lastAiScoreCode: '',
@@ -194,11 +194,11 @@ const weaknessAnalysis = {
   },
   updateWeaknessDisplay() {
     const wSyntax = document.getElementById('weakSyntax');
-    const wSpeed = document.getElementById('weakSpeed');
-    const wName = document.getElementById('weakNaming');
+    const wSpeed  = document.getElementById('weakSpeed');
+    const wName   = document.getElementById('weakNaming');
     const bSyntax = document.getElementById('weakSyntaxBar');
-    const bSpeed = document.getElementById('weakSpeedBar');
-    const bName = document.getElementById('weakNamingBar');
+    const bSpeed  = document.getElementById('weakSpeedBar');
+    const bName   = document.getElementById('weakNamingBar');
 
     // 檢查元素是否存在
     if (!wSyntax || !wSpeed || !wName || !bSyntax || !bSpeed || !bName) {
@@ -210,16 +210,16 @@ const weaknessAnalysis = {
     const n = isNaN(this.namingIssues) ? 0 : this.namingIssues;
 
     wSyntax.textContent = s + "% 頻率";
-    wSpeed.textContent = c + "% 頻率";
-    wName.textContent = n + "% 頻率";
+    wSpeed.textContent  = c + "% 頻率";
+    wName.textContent   = n + "% 頻率";
     bSyntax.style.width = s + "%";
-    bSpeed.style.width = c + "%";
-    bName.style.width = n + "%";
+    bSpeed.style.width  = c + "%";
+    bName.style.width   = n + "%";
   },
   generateSuggestions() {
     const list = document.getElementById('aiSuggestionList');
     if (!list) return; // 元素不存在時直接返回
-
+    
     list.innerHTML = "";
     const suggestions = [];
     if (this.syntaxErrors >= 30) {
@@ -263,12 +263,12 @@ function formatTime(ms) {
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  const pad = (n) => String(n).padStart(2, '0');
+  const pad = (n)=> String(n).padStart(2,'0');
   return h > 0 ? `${pad(h)}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
 }
 
-function getCode() {
-  return monacoEditor ? monacoEditor.getValue() : "";
+function getCode() { 
+  return monacoEditor ? monacoEditor.getValue() : ""; 
 }
 
 // 更新顯示：統一入口
@@ -278,16 +278,16 @@ function updateStatsDisplay() {
     const el = document.getElementById(id);
     if (el) el.textContent = text;
   };
-
+  
   // 輔助函數：安全設置樣式
   const safeSetStyle = (id, property, value) => {
     const el = document.getElementById(id);
     if (el) el.style[property] = value;
   };
-
+  
   // 🆕 顯示學生姓名
   safeSetText('studentNameText', stats.studentName || '未設定');
-
+  
   // 頂部進度與統計
   safeSetText('runCount', stats.runCount);
   safeSetText('codeModCount', stats.codeModifications);
@@ -296,7 +296,7 @@ function updateStatsDisplay() {
   safeSetText('errorCount', stats.errorCount);
 
   // 平均分數
-  const avg = stats.totalScores.length ? Math.round(stats.totalScores.reduce((a, b) => a + b, 0) / stats.totalScores.length) : 0;
+  const avg = stats.totalScores.length ? Math.round(stats.totalScores.reduce((a,b)=>a+b,0)/stats.totalScores.length) : 0;
   stats.averageScore = avg;
   safeSetText('avgScore', avg);
 
@@ -313,21 +313,21 @@ function updateStatsDisplay() {
   safeSetText('mouseMoveCount', stats.mouseMoveCount);
 
   // 每分鐘
-  const mins = Math.max(1, (now - stats.sessionStartTime) / 60000);
+  const mins = Math.max(1, (now - stats.sessionStartTime)/60000);
   safeSetText('clickPerMin', Math.round(stats.totalClicks / mins));
   safeSetText('keyPerMin', Math.round(stats.keyPressCount / mins));
 
   // 進度條（行為）
-  const clamp = (v) => Math.max(0, Math.min(100, v));
-  safeSetStyle('mouseMoveBar', 'width', clamp(stats.mouseMoveCount / 5) + "%");
-  safeSetStyle('clickBar', 'width', clamp(stats.totalClicks * 5) + "%");
-  safeSetStyle('keyPressBar', 'width', clamp(stats.keyPressCount / 3) + "%");
+  const clamp = (v)=> Math.max(0, Math.min(100, v));
+  safeSetStyle('mouseMoveBar', 'width', clamp(stats.mouseMoveCount/5) + "%");
+  safeSetStyle('clickBar', 'width', clamp(stats.totalClicks*5) + "%");
+  safeSetStyle('keyPressBar', 'width', clamp(stats.keyPressCount/3) + "%");
   safeSetText('mouseMoveActive', clamp(stats.meaningfulMouseMoves) + "%");
 
   // 專注時間與條
   safeSetText('focusTimeText', formatTime(stats.totalFocusTime));
-  safeSetText('focusStreakText', Math.round(stats.currentFocusStreak / 1000) + "s");
-  const focusPercent = clamp((stats.currentFocusStreak / 1000) / 60 * 100); // 60s = 100%
+  safeSetText('focusStreakText', Math.round(stats.currentFocusStreak/1000) + "s");
+  const focusPercent = clamp((stats.currentFocusStreak/1000) / 60 * 100); // 60s = 100%
   safeSetStyle('focusBar', 'width', focusPercent + "%");
 
   // 成功率
@@ -344,7 +344,7 @@ function updateStatsDisplay() {
   // ⚠️ 注意：不要在這裡更新 AI 評分系統的分數
   // AI 評分系統的分數應該只由 AI 分析結果更新，而不是統計數據
   // 這樣可以避免覆蓋 AI 的詳細評分
-
+  
   // 如果沒有任何分數記錄，則顯示統計平均分（僅供參考）
   // 但不會覆蓋 AI 分析的詳細評分
 }
@@ -386,12 +386,15 @@ function detectCodeModification() {
 async function checkBackendStatus() {
   try {
     const response = await fetch(API_ENDPOINTS.status, {
+      method: 'GET',
+      mode: 'cors',
       headers: {
         'ngrok-skip-browser-warning': 'true',
         'User-Agent': 'PythonDiagnosticPlatform'
-      }
+      },
+      credentials: 'omit'
     });
-
+    
     // 檢查回應是否為 JSON
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
@@ -399,9 +402,9 @@ async function checkBackendStatus() {
       console.error('後端回傳非 JSON 內容:', text.substring(0, 200));
       throw new Error('後端回傳了 HTML 而非 JSON，可能是 ngrok 的攔截頁面。請檢查 ngrok 是否正確設定，或嘗試在瀏覽器中直接訪問: ' + API_ENDPOINTS.status);
     }
-
+    
     const status = await response.json();
-
+    
     // 更新界面狀態顯示
     const statusElement = document.getElementById('backendStatus');
     if (statusElement) {
@@ -416,7 +419,7 @@ async function checkBackendStatus() {
         statusElement.className = 'text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 border';
       }
     }
-
+    
     return status;
   } catch (err) {
     console.error('後端狀態檢查失敗:', err);
@@ -436,7 +439,7 @@ async function checkBackendStatus() {
 async function initializeBackend() {
   console.log('🔄 正在初始化 Ngrok 後端連接...');
   console.log('📡 API URL:', getApiBaseUrl());
-
+  
   // 檢查後端狀態
   await checkBackendStatus();
 }
@@ -444,7 +447,7 @@ async function initializeBackend() {
 // 顯示 ngrok 攔截警告
 function showNgrokWarningModal() {
   const currentUrl = getApiBaseUrl();
-
+  
   const modal = document.createElement('div');
   modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
   modal.innerHTML = `
@@ -558,17 +561,18 @@ async function aiCheck() {
   try {
     const code = getCode();
     const currentQuestion = window.questionsManager.getCurrentQuestion();
-
+    
     if (!currentQuestion) {
       throw new Error('找不到當前題目資料');
     }
-
+    
     let runText = "";
-
+    
     // 先嘗試執行程式碼獲取輸出
     try {
       const execResponse = await fetch(API_ENDPOINTS.execute, {
         method: 'POST',
+        mode: 'cors',
         headers: {
           'Content-Type': 'application/json',
           'ngrok-skip-browser-warning': 'true',
@@ -576,7 +580,7 @@ async function aiCheck() {
         },
         body: JSON.stringify({ code: code })
       });
-
+      
       const execResult = await execResponse.json();
       if (execResult.success) {
         runText = execResult.output || '';
@@ -591,7 +595,7 @@ async function aiCheck() {
     // 構建預期輸出（從測試案例）
     let expectedOutputText = '';
     if (currentQuestion.test_cases && currentQuestion.test_cases.length > 0) {
-      expectedOutputText = currentQuestion.test_cases.map(tc =>
+      expectedOutputText = currentQuestion.test_cases.map(tc => 
         `輸入 ${tc.input} 時，預期輸出: ${tc.output}`
       ).join('\n');
     }
@@ -613,6 +617,7 @@ async function aiCheck() {
     // 呼叫 AI 分析 API
     const response = await fetch(API_ENDPOINTS.aiAnalyze, {
       method: 'POST',
+      mode: 'cors',
       headers: {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true',
@@ -622,19 +627,19 @@ async function aiCheck() {
     });
 
     const result = await response.json();
-
+    
     if (result.success && result.analysis) {
       const analysis = result.analysis;
       const overallScore = analysis.overall_score || 0;
-
+      
       // 記錄分數
       stats.totalScores.push(overallScore);
-
+      
       // 更新完成狀態
       if (overallScore >= 85 && stats.completedQuestions < window.questionsManager.getTotalQuestions()) {
         stats.completedQuestions++;
       }
-
+      
       // 🆕 提交成績到後端（包含所有評分細項）
       const questionId = currentQuestion.id || currentQuestion.task_number;
       const submitted = await submitScoreToBackend(questionId, overallScore, code, {
@@ -643,7 +648,7 @@ async function aiCheck() {
         readability: analysis.readability_score,
         stability: analysis.stability_score
       });
-
+      
       // 🎯 更新 AI 評分系統的各項分數
       if (analysis.time_complexity_score !== undefined) {
         document.getElementById('subScoreTimeComplexity').textContent = analysis.time_complexity_score;
@@ -657,15 +662,15 @@ async function aiCheck() {
       if (analysis.stability_score !== undefined) {
         document.getElementById('subScoreStability').textContent = analysis.stability_score;
       }
-
+      
       // 更新總分圓環
       updateScoreRing(overallScore);
       document.getElementById('mainScore').textContent = overallScore;
-
+      
       // 顯示 AI 分析結果
       const list = document.getElementById('aiSuggestionList');
       if (list) list.innerHTML = "";
-
+      
       // 清空舊評分（現在顯示在 scoreDisplayArea）
       const scoreDisplayArea = document.getElementById('scoreDisplayArea');
       if (scoreDisplayArea) {
@@ -674,7 +679,7 @@ async function aiCheck() {
         const noScoreYet = document.getElementById('noScoreYet');
         if (noScoreYet) noScoreYet.remove();
       }
-
+      
       // 記錄評分資料（供對話機器人使用）
       stats.lastAiScore = {
         overall: overallScore,
@@ -685,18 +690,18 @@ async function aiCheck() {
       };
       stats.lastAiScoreCode = code;
       stats.lastAiScoreOutput = runText;
-
+      
       // 添加成績提交狀態提示（只顯示分數，不顯示評語）
       if (submitted) {
         const submittedDiv = document.createElement('div');
         submittedDiv.className = 'bg-green-50 border border-green-200 rounded-lg p-3 shadow-sm';
-
+        
         // 建立評分詳情文字
         const timeScore = analysis.time_complexity_score !== undefined ? analysis.time_complexity_score : '-';
         const spaceScore = analysis.space_complexity_score !== undefined ? analysis.space_complexity_score : '-';
         const readScore = analysis.readability_score !== undefined ? analysis.readability_score : '-';
         const stabScore = analysis.stability_score !== undefined ? analysis.stability_score : '-';
-
+        
         submittedDiv.innerHTML = `
           <div class="flex flex-col gap-3">
             <div class="flex items-center gap-2">
@@ -736,17 +741,17 @@ async function aiCheck() {
           scoreDisplayArea.appendChild(submittedDiv);
         }
       }
-
+      
       // 更新狀態
       if (overallScore >= 85) {
         stats.successfulRuns++;
       } else {
         stats.errorCount++;
       }
-
+      
       // 🆕 自動觸發對話機器人解釋評分結果（立即執行，不延遲）
       autoExplainScore(analysis, overallScore);
-
+      
     } else {
       throw new Error(result.error || 'AI 分析失敗');
     }
@@ -758,11 +763,11 @@ async function aiCheck() {
 
     aiStatus.textContent = "分析完成 ✓";
     aiStatus.className = "text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 border border-green-200";
-
+    
   } catch (err) {
     console.error('AI 檢查錯誤:', err);
     stats.errorCount++;
-
+    
     // 顯示錯誤訊息
     const list = document.getElementById('aiSuggestionList');
     list.innerHTML = "";
@@ -770,7 +775,7 @@ async function aiCheck() {
     li.className = 'text-red-600';
     li.textContent = `AI 分析失敗: ${err.message}`;
     list.appendChild(li);
-
+    
     // 嘗試使用本地模擬分析作為後備
     try {
       const runText = simulatePythonRun(getCode());
@@ -778,16 +783,16 @@ async function aiCheck() {
       const similarity = compareStrings(expected, runText);
       const score = Math.round(similarity * 100);
       stats.totalScores.push(score);
-
+      
       const backupLi = document.createElement('li');
       backupLi.textContent = `使用本地分析：相似度 ${score}%`;
       list.appendChild(backupLi);
     } catch (e) {
       console.error('本地分析也失敗:', e);
     }
-
+    
     updateStatsDisplay();
-
+    
     aiStatus.textContent = "分析失敗";
     aiStatus.className = "text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 border border-red-200";
   }
@@ -800,7 +805,7 @@ function compareStrings(a, b) {
   const max = Math.max(A.length, B.length);
   if (max === 0) return 1;
   let same = 0;
-  for (let i = 0; i < max; i++) if ((A[i] || "") === (B[i] || "")) same++;
+  for (let i=0;i<max;i++) if ((A[i]||"") === (B[i]||"")) same++;
   return same / max;
 }
 
@@ -809,21 +814,21 @@ async function runProgram() {
   stats.runCount++;
   runStatus.textContent = "執行中...";
   runStatus.className = "text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 border";
-
+  
   // 變更按鈕狀態
   runBtn.disabled = true;
   runBtn.textContent = "執行中...";
-
+  
   try {
     const code = getCode();
     if (!code.trim()) {
       throw new Error('程式碼不能為空');
     }
-
+    
     // 檢查程式碼是否使用 input()
     const hasInput = /\binput\s*\(/.test(code);
     let inputs = [];
-
+    
     if (hasInput) {
       // 顯示輸入對話框
       inputs = await showInputDialog(code);
@@ -836,22 +841,23 @@ async function runProgram() {
         return;
       }
     }
-
+    
     const response = await fetch(API_ENDPOINTS.execute, {
       method: 'POST',
+      mode: 'cors',
       headers: {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true',
         'User-Agent': 'PythonDiagnosticPlatform'
       },
-      body: JSON.stringify({
+      body: JSON.stringify({ 
         code: code,
         inputs: inputs  // 傳送輸入資料
       })
     });
-
+    
     const result = await response.json();
-
+    
     if (result.success) {
       outputBox.textContent = result.output || '執行成功，但沒有輸出';
       outputBox.classList.remove('text-red-300');
@@ -862,7 +868,7 @@ async function runProgram() {
     } else {
       throw new Error(result.error || '執行失敗');
     }
-
+    
   } catch (err) {
     console.error('執行錯誤:', err);
     outputBox.textContent = `錯誤: ${err.message}`;
@@ -884,7 +890,7 @@ async function showInputDialog(code) {
   // 計算需要多少個輸入
   const inputMatches = code.match(/\binput\s*\(/g);
   const inputCount = inputMatches ? inputMatches.length : 1;
-
+  
   return new Promise((resolve) => {
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
@@ -894,7 +900,7 @@ async function showInputDialog(code) {
         <p class="text-sm text-gray-600 mb-4">偵測到程式使用了 <code class="bg-gray-100 px-2 py-1 rounded">input()</code>，請依序輸入資料：</p>
         
         <div id="inputFields" class="space-y-3 mb-4 max-h-64 overflow-y-auto">
-          ${Array.from({ length: inputCount }, (_, i) => `
+          ${Array.from({length: inputCount}, (_, i) => `
             <div>
               <label class="block text-sm font-semibold text-gray-700 mb-1">輸入 ${i + 1}:</label>
               <input 
@@ -922,19 +928,19 @@ async function showInputDialog(code) {
       </div>
     `;
     document.body.appendChild(modal);
-
+    
     // 聚焦第一個輸入框
     setTimeout(() => {
       const firstInput = document.getElementById('input_0');
       if (firstInput) firstInput.focus();
     }, 100);
-
+    
     // 取消按鈕
     document.getElementById('cancelInputBtn').addEventListener('click', () => {
       modal.remove();
       resolve(null);
     });
-
+    
     // 確認按鈕
     document.getElementById('confirmInputBtn').addEventListener('click', () => {
       const inputs = [];
@@ -945,7 +951,7 @@ async function showInputDialog(code) {
       modal.remove();
       resolve(inputs);
     });
-
+    
     // Enter 鍵確認（最後一個輸入框）
     const lastInput = document.getElementById(`input_${inputCount - 1}`);
     if (lastInput) {
@@ -1016,13 +1022,13 @@ setInterval(() => {
 // 每分鐘更新下一次評估時間顯示
 function updateNextAssessmentText() {
   const now = new Date();
-  const next = new Date(now.getTime() + 60 * 1000);
-  const hh = String(next.getHours()).padStart(2, '0');
-  const mm = String(next.getMinutes()).padStart(2, '0');
+  const next = new Date(now.getTime() + 60*1000);
+  const hh = String(next.getHours()).padStart(2,'0');
+  const mm = String(next.getMinutes()).padStart(2,'0');
   document.getElementById('nextAssessment').textContent = `${hh}:${mm}`;
 }
 updateNextAssessmentText();
-setInterval(updateNextAssessmentText, 60 * 1000);
+setInterval(updateNextAssessmentText, 60*1000);
 
 // 每 5 分鐘自動弱點分析（示範可縮短，但遵照規格使用 5 分鐘）
 setInterval(() => {
@@ -1084,13 +1090,14 @@ function addChatMessage(content, isUser = false, messageId = null) {
   const messageDiv = document.createElement('div');
   messageDiv.id = uniqueId;
   messageDiv.className = `flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`;
-
+  
   const bubble = document.createElement('div');
-  bubble.className = `max-w-[80%] rounded-lg px-4 py-2.5 ${isUser
-    ? 'bg-indigo-600 text-white'
-    : 'bg-gray-100 text-gray-800'
-    }`;
-
+  bubble.className = `max-w-[80%] rounded-lg px-4 py-2.5 ${
+    isUser 
+      ? 'bg-indigo-600 text-white' 
+      : 'bg-gray-100 text-gray-800'
+  }`;
+  
   // 根據是否為用戶，使用不同的渲染方式
   let renderedContent;
   if (isUser) {
@@ -1100,28 +1107,28 @@ function addChatMessage(content, isUser = false, messageId = null) {
     // AI 訊息：渲染 Markdown
     renderedContent = renderMarkdown(content);
   }
-
+  
   bubble.innerHTML = `<div class="text-sm message-content">${renderedContent}</div>`;
-
+  
   messageDiv.appendChild(bubble);
   chatHistory.appendChild(messageDiv);
-
+  
   // 自動滾動到底部
   setTimeout(scrollChatToBottom, 100);
-
+  
   return uniqueId;
 }
 
 // 🆕 Markdown 渲染函數（類似 ChatGPT）
 function renderMarkdown(content) {
   if (!content) return '';
-
+  
   // 配置 marked.js
   if (typeof marked !== 'undefined') {
     marked.setOptions({
       breaks: true,  // 支援 GitHub 風格的換行
       gfm: true,     // 支援 GitHub Flavored Markdown
-      highlight: function (code, lang) {
+      highlight: function(code, lang) {
         // 使用 highlight.js 進行語法高亮
         if (typeof hljs !== 'undefined' && lang && hljs.getLanguage(lang)) {
           try {
@@ -1133,10 +1140,10 @@ function renderMarkdown(content) {
         return code;
       }
     });
-
+    
     // 渲染 Markdown
     let html = marked.parse(content);
-
+    
     // 美化樣式（類似 ChatGPT）
     html = html
       .replace(/<p>/g, '<p class="mb-2 leading-relaxed">')
@@ -1153,10 +1160,10 @@ function renderMarkdown(content) {
       .replace(/<blockquote>/g, '<blockquote class="border-l-4 border-indigo-500 pl-3 italic text-gray-600 my-2">')
       .replace(/<strong>/g, '<strong class="font-semibold">')
       .replace(/<em>/g, '<em class="italic">');
-
+    
     return html;
   }
-
+  
   // 如果 marked.js 未載入，使用簡單的換行處理
   return content.replace(/\n/g, '<br>');
 }
@@ -1170,7 +1177,7 @@ function addLoadingMessage() {
   const messageDiv = document.createElement('div');
   messageDiv.id = uniqueId;
   messageDiv.className = 'flex justify-start';
-
+  
   const bubble = document.createElement('div');
   bubble.className = 'max-w-[80%] rounded-lg px-4 py-3 bg-gray-100 text-gray-800';
   bubble.innerHTML = `
@@ -1183,13 +1190,13 @@ function addLoadingMessage() {
       <span class="text-sm text-gray-600">老師正在思考中...</span>
     </div>
   `;
-
+  
   messageDiv.appendChild(bubble);
   chatHistory.appendChild(messageDiv);
-
+  
   // 自動滾動到底部
   setTimeout(scrollChatToBottom, 100);
-
+  
   return uniqueId;
 }
 
@@ -1207,34 +1214,34 @@ function removeLoadingMessage(loadingId) {
 async function sendChatMessage() {
   const chatInput = document.getElementById('chatInput');
   const chatSendBtn = document.getElementById('chatSendBtn');
-
+  
   if (!chatInput || !chatInput.value.trim()) return;
-
+  
   const userMessage = chatInput.value.trim();
   chatInput.value = '';
-
+  
   // 顯示使用者訊息
   addChatMessage(userMessage, true);
-
+  
   // 顯示載入動畫
   const loadingId = addLoadingMessage();
-
+  
   // 禁用發送按鈕
   chatSendBtn.disabled = true;
   chatSendBtn.textContent = '思考中...';
-
+  
   try {
     // 獲取當前程式碼和執行結果
     const code = getCode();
     const output = document.getElementById('outputBox')?.textContent || '';
-
+    
     // 獲取當前題目資訊
     const currentQuestion = window.questionsManager?.getCurrentQuestion();
     const questionContext = currentQuestion ? {
       title: currentQuestion.title || '',
       description: currentQuestion.description || ''
     } : null;
-
+    
     // 構建完整的系統提示詞
     const systemContext = {
       message: userMessage,
@@ -1257,10 +1264,11 @@ async function sendChatMessage() {
       systemContext.custom_prompt = promptTester.customPrompts.chat;
       console.log('🧪 使用自訂 chat 提示詞');
     }
-
+    
     // 呼叫對話 API（流式輸出）
     const response = await fetch(API_ENDPOINTS.aiChat, {
       method: 'POST',
+      mode: 'cors',
       headers: {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true',
@@ -1268,10 +1276,10 @@ async function sendChatMessage() {
       },
       body: JSON.stringify(systemContext)
     });
-
+    
     // 移除載入動畫
     removeLoadingMessage(loadingId);
-
+    
     // 檢查是否為流式輸出
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('text/event-stream')) {
@@ -1280,21 +1288,21 @@ async function sendChatMessage() {
       const decoder = new TextDecoder();
       let aiMessageId = null;
       let accumulatedText = '';
-
+      
       chatSendBtn.textContent = '接收中...';
-
+      
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
+        
         const chunk = decoder.decode(value);
         const lines = chunk.split('\n');
-
+        
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             if (data === '[DONE]') break;
-
+            
             try {
               const parsed = JSON.parse(data);
               if (parsed.text) {
@@ -1311,14 +1319,14 @@ async function sendChatMessage() {
     } else {
       // 非流式輸出（後備方案）
       const result = await response.json();
-
+      
       if (result.success && result.reply) {
         addChatMessage(result.reply, false);
       } else {
         throw new Error(result.error || '對話失敗');
       }
     }
-
+    
   } catch (err) {
     console.error('對話錯誤:', err);
     // 移除載入動畫（如果還存在）
@@ -1333,21 +1341,21 @@ async function sendChatMessage() {
 // 自動觸發對話機器人解釋評分結果
 async function autoExplainScore(analysis, overallScore) {
   console.log('🤖 自動觸發評分解釋 - 總分:', overallScore, '分析:', analysis);
-
+  
   const chatMessagesDiv = document.getElementById('chatHistory');
   if (!chatMessagesDiv) {
     console.error('❌ 找不到 chatHistory 元素');
     return;
   }
-
+  
   // 構建評分摘要文字 - 聚焦在當前程式上
   const timeScore = analysis.time_complexity_score !== undefined ? analysis.time_complexity_score : '-';
   const spaceScore = analysis.space_complexity_score !== undefined ? analysis.space_complexity_score : '-';
   const readScore = analysis.readability_score !== undefined ? analysis.readability_score : '-';
   const stabScore = analysis.stability_score !== undefined ? analysis.stability_score : '-';
-
+  
   const scoreMessage = `請針對我當前這段程式碼進行解釋：為什麼得到 ${overallScore} 分？（時間複雜度: ${timeScore}/10, 空間複雜度: ${spaceScore}/10, 可讀性: ${readScore}/10, 穩定性: ${stabScore}/10）哪些地方寫得好？哪些地方需要改進？請具體說明這段程式碼的問題。`;
-
+  
   // 顯示自動觸發的用戶訊息（標記為系統自動）
   const userMsgDiv = document.createElement('div');
   userMsgDiv.className = 'flex justify-end mb-3';
@@ -1363,10 +1371,10 @@ async function autoExplainScore(analysis, overallScore) {
   `;
   chatMessagesDiv.appendChild(userMsgDiv);
   chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
-
+  
   // 顯示載入動畫
   const loadingId = addLoadingMessage();
-
+  
   try {
     // 構建完整上下文（與 sendChatMessage 相同）
     const currentQuestion = window.questionsManager?.getCurrentQuestion();
@@ -1385,10 +1393,11 @@ async function autoExplainScore(analysis, overallScore) {
         modifications: stats.codeModifications
       }
     };
-
+    
     // 呼叫對話 API（流式輸出）
     const response = await fetch(API_ENDPOINTS.aiChat, {
       method: 'POST',
+      mode: 'cors',
       headers: {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true',
@@ -1396,10 +1405,10 @@ async function autoExplainScore(analysis, overallScore) {
       },
       body: JSON.stringify(systemContext)
     });
-
+    
     // 移除載入動畫
     removeLoadingMessage(loadingId);
-
+    
     // 檢查是否為流式輸出
     const contentType = response.headers.get('content-type');
     if (contentType && contentType.includes('text/event-stream')) {
@@ -1408,19 +1417,19 @@ async function autoExplainScore(analysis, overallScore) {
       const decoder = new TextDecoder();
       let aiMessageId = null;
       let accumulatedText = '';
-
+      
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
+        
         const chunk = decoder.decode(value);
         const lines = chunk.split('\n');
-
+        
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             if (data === '[DONE]') break;
-
+            
             try {
               const parsed = JSON.parse(data);
               if (parsed.text) {
@@ -1437,14 +1446,14 @@ async function autoExplainScore(analysis, overallScore) {
     } else {
       // 非流式輸出（後備方案）
       const result = await response.json();
-
+      
       if (result.success && result.reply) {
         addChatMessage(result.reply, false);
       } else {
         throw new Error(result.error || '對話失敗');
       }
     }
-
+    
   } catch (err) {
     console.error('自動評分解釋錯誤:', err);
     // 移除載入動畫（如果還存在）
@@ -1466,31 +1475,31 @@ async function initFromStorage() {
     showStudentNameModal();
     return; // 等待使用者輸入姓名後再繼續
   }
-
+  
   // 顯示歡迎訊息
   console.log(`👋 歡迎, ${stats.studentName}!`);
   console.log(`🌐 使用 Ngrok 模式: ${getApiBaseUrl()}`);
-
+  
   // 同步 questions manager 的 API URL
   if (window.questionsManager) {
     window.questionsManager.setApiUrl(getApiBaseUrl());
   }
-
+  
   // 先載入題目
   const questionsLoaded = await window.questionsManager.loadQuestions();
-
+  
   if (questionsLoaded) {
     // 渲染第一題
     window.questionsManager.renderQuestion();
-
+    
     // 更新題目總數
     const totalQuestions = window.questionsManager.getTotalQuestions();
     stats.totalQuestions = totalQuestions;
     document.getElementById('totalQuestions').textContent = totalQuestions;
-
+    
     // 載入學生的歷史成績
     await loadStudentScores();
-
+    
     console.log('✅ 題目載入完成');
   } else {
     // 題目載入失敗，顯示錯誤訊息
@@ -1509,10 +1518,10 @@ async function initFromStorage() {
       `;
     }
   }
-
+  
   // Monaco Editor 已經在初始化時載入了保存的代碼
   await initializeBackend();
-
+  
   updateLearningProgress();
   updateStatsDisplay();
   weaknessAnalysis.analyzeWeaknesses();
@@ -1552,7 +1561,7 @@ function showStudentNameModal() {
     </div>
   `;
   document.body.appendChild(modal);
-
+  
   // 聚焦到輸入框
   setTimeout(() => {
     const input = document.getElementById('studentNameInput');
@@ -1573,23 +1582,23 @@ function submitStudentName() {
   const input = document.getElementById('studentNameInput');
   const nameError = document.getElementById('nameError');
   const name = input.value.trim();
-
+  
   if (!name) {
     nameError.classList.remove('hidden');
     input.classList.add('border-red-500');
     return;
   }
-
+  
   // 儲存姓名
   stats.studentName = name;
   localStorage.setItem('studentName', name);
-
+  
   // 關閉對話框
   const modal = document.getElementById('studentNameModal');
   if (modal) {
     modal.remove();
   }
-
+  
   // 繼續初始化
   initFromStorage();
 }
@@ -1597,23 +1606,25 @@ function submitStudentName() {
 // 載入學生歷史成績
 async function loadStudentScores() {
   try {
-    const response = await fetch(`${getApiBaseUrl()}/api/scores/${encodeURIComponent(stats.studentName)}`, {
+    const response = await fetch(`${getApiBaseUrl()}/api1/api/scores/${encodeURIComponent(stats.studentName)}`, {
+      method: 'GET',
+      mode: 'cors',
       headers: {
         'ngrok-skip-browser-warning': 'true',
         'User-Agent': 'PythonDiagnosticPlatform'
       }
     });
-
+    
     const result = await response.json();
-
+    
     if (result.success && result.scores) {
       console.log(`📊 載入了 ${result.scores.length} 筆歷史成績`);
-
+      
       // 更新統計
       result.scores.forEach(scoreRecord => {
         stats.totalScores.push(scoreRecord.score);
       });
-
+      
       updateStatsDisplay();
     }
   } catch (error) {
@@ -1628,9 +1639,10 @@ async function submitScoreToBackend(questionId, score, code, detailedScores = {}
       console.warn('未設定學生姓名，無法提交成績');
       return false;
     }
-
-    const response = await fetch(`${getApiBaseUrl()}/api/scores/submit`, {
+    
+    const response = await fetch(`${getApiBaseUrl()}/api1/api/scores/submit`, {
       method: 'POST',
+      mode: 'cors',
       headers: {
         'Content-Type': 'application/json',
         'ngrok-skip-browser-warning': 'true',
@@ -1644,9 +1656,9 @@ async function submitScoreToBackend(questionId, score, code, detailedScores = {}
         detailed_scores: detailedScores
       })
     });
-
+    
     const result = await response.json();
-
+    
     if (result.success) {
       console.log(`✅ 成績已記錄: 題目 ${questionId}, 總分 ${score}`);
       if (detailedScores.time_complexity) {
@@ -1667,17 +1679,17 @@ async function submitScoreToBackend(questionId, score, code, detailedScores = {}
 document.addEventListener('questionChanged', (e) => {
   const { question, index } = e.detail;
   console.log(`已切換到題目 ${index + 1}: ${question.title}`);
-
+  
   // 可以在這裡更新預期輸出等資訊
   // 例如：expectedOutput = question.expected_output;
-
+  
   // 清空輸出區域
   if (outputBox) {
     outputBox.textContent = '等待程式執行...';
     outputBox.classList.remove('text-red-300');
     outputBox.classList.add('text-green-200');
   }
-
+  
   // 清空 AI 分析
   const aiAnalysisBox = document.getElementById('aiAnalysisBox');
   if (aiAnalysisBox) {
@@ -1690,7 +1702,7 @@ document.addEventListener('questionChanged', (e) => {
 // 初始化後端連接
 async function initializeBackend() {
   console.log('🔄 正在初始化後端連接...');
-
+  
   // 檢查後端狀態
   await checkBackendStatus();
 }
@@ -1752,7 +1764,7 @@ function initializeMonacoEditor() {
     }
   });
 
-  require(['vs/editor/editor.main'], function () {
+  require(['vs/editor/editor.main'], function() {
     monacoEditor = monaco.editor.create(editorContainer, {
       value: `# 請完成題目要求，輸出三行指定文字
 print("Hello, Python!")
@@ -1795,10 +1807,10 @@ print("這是第 1 題 ✅")`,
         monacoEditor.setValue(saved);
         stats.lastCodeContent = saved;
       }
-    } catch (e) { }
+    } catch (e) {}
 
     console.log('Monaco Editor 初始化完成');
-
+    
     // Monaco Editor 初始化完成後，執行其他初始化
     initFromStorage();
   });
@@ -1846,7 +1858,7 @@ function initPromptEditor() {
     if (!currentEditingPromptType) return;
     const type = currentEditingPromptType;
     const customPrompt = textarea.value.trim();
-
+    
     if (!customPrompt) {
       showNotification('提示詞內容不能為空', 'error');
       return;
@@ -1857,10 +1869,10 @@ function initPromptEditor() {
     updatePromptStatus(type, true);
     updatePromptPreview(type, customPrompt);
     closePromptEditor();
-
+    
     showNotification(`已啟用 ${getPromptTypeName(type)} 測試模式`, 'success');
     console.log(`🧪 提示詞測試模式已啟用 (${type}):`, customPrompt.substring(0, 100) + '...');
-
+    
     // 更新測試模式指示器
     const indicator = document.getElementById('promptTestModeIndicator');
     if (indicator) indicator.classList.remove('hidden');
@@ -1878,9 +1890,9 @@ function editPrompt(type) {
   const title = document.getElementById('modalPromptTitle');
   const desc = document.getElementById('modalPromptDesc');
   const charCount = document.getElementById('charCount');
-
+  
   if (!modal || !textarea) return;
-
+  
   // 設定標題和描述
   const typeInfo = {
     analyze: { name: 'analyze_prompt', desc: '程式碼全面分析與評分 - 用於 AI 評分功能' },
@@ -1888,15 +1900,15 @@ function editPrompt(type) {
     suggest: { name: 'suggest_prompt', desc: '引導式學習建議 - 用於學習建議' },
     chat: { name: 'chat_system_prompt', desc: 'AI 對話系統 - 用於聊天機器人' }
   };
-
+  
   if (title) title.textContent = `編輯 ${typeInfo[type].name}`;
   if (desc) desc.textContent = typeInfo[type].desc;
-
+  
   // 載入當前提示詞
   const currentPrompt = promptTester.customPrompts[type] || promptTester.defaultPrompts[type];
   textarea.value = currentPrompt;
   if (charCount) charCount.textContent = currentPrompt.length;
-
+  
   // 顯示模態框
   modal.classList.remove('hidden');
 }
@@ -1954,17 +1966,17 @@ function getPromptTypeName(type) {
 // 重置所有提示詞
 function resetAllPrompts() {
   if (!confirm('確定要重置所有提示詞為預設值嗎？')) return;
-
+  
   ['analyze', 'check', 'suggest', 'chat'].forEach(type => {
     promptTester.customPrompts[type] = null;
     updatePromptStatus(type, false);
     updatePromptPreview(type, promptTester.defaultPrompts[type]);
   });
-
+  
   promptTester.isTestMode = false;
   const indicator = document.getElementById('promptTestModeIndicator');
   if (indicator) indicator.classList.add('hidden');
-
+  
   showNotification('已重置所有提示詞為預設值', 'success');
 }
 
@@ -1976,7 +1988,7 @@ function exportPrompts() {
     suggest: promptTester.customPrompts.suggest || promptTester.defaultPrompts.suggest,
     chat: promptTester.customPrompts.chat || promptTester.defaultPrompts.chat
   };
-
+  
   const dataStr = JSON.stringify(settings, null, 2);
   const dataBlob = new Blob([dataStr], { type: 'application/json' });
   const url = URL.createObjectURL(dataBlob);
@@ -1985,7 +1997,7 @@ function exportPrompts() {
   link.download = `prompts_export_${new Date().getTime()}.json`;
   link.click();
   URL.revokeObjectURL(url);
-
+  
   showNotification('提示詞設定已匯出', 'success');
 }
 
@@ -2006,9 +2018,9 @@ function showNotification(message, type = 'info') {
   const notification = document.createElement('div');
   notification.className = `fixed top-20 right-6 ${colors[type]} text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300 transform translate-x-0`;
   notification.textContent = message;
-
+  
   document.body.appendChild(notification);
-
+  
   setTimeout(() => {
     notification.style.transform = 'translateX(400px)';
     setTimeout(() => notification.remove(), 300);
@@ -2016,90 +2028,20 @@ function showNotification(message, type = 'info') {
 }
 
 // 當 DOM 載入完成後初始化 Monaco Editor
-// 當 DOM 載入完成後初始化 Monaco Editor
 document.addEventListener('DOMContentLoaded', () => {
   initializeMonacoEditor();
   initPromptEditor(); // 初始化提示詞編輯器
-
+  
   // 🎯 初始化 AI 評分系統顯示（清空預設值）
-  /* 
-     注意：這些元素 ID 必須存在於 HTML 中。因為我們重構了 HTML，
-     請確保 'mainScore', 'subScoreTimeComplexity' 等 ID 仍然存在。
-     如果它們在新的 HTML 結構中被移除或重命名，這裡會報錯。
-     根據最新的 HTML 修改，我們移除了詳細評分卡片，改為簡單的列表或後續添加。
-     不過為了兼容性，先保留檢查。
-  */
-  const safeSetText = (id, text) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = text;
-  };
-
-  safeSetText('mainScore', '-');
-  safeSetText('subScoreTimeComplexity', '-');
-  safeSetText('subScoreSpaceComplexity', '-');
-  safeSetText('subScoreReadability', '-');
-  safeSetText('subScoreStability', '-');
-
+  document.getElementById('mainScore').textContent = '-';
+  document.getElementById('subScoreTimeComplexity').textContent = '-';
+  document.getElementById('subScoreSpaceComplexity').textContent = '-';
+  document.getElementById('subScoreReadability').textContent = '-';
+  document.getElementById('subScoreStability').textContent = '-';
+  
   // 重置圓環進度
   const scoreRing = document.getElementById('scoreRing');
   if (scoreRing) {
     scoreRing.style.strokeDashoffset = '471'; // 完全隱藏
   }
-
-  // 初始化 Split.js (可調整大小區塊)
-  if (typeof Split !== 'undefined') {
-    // 水平分割 (左側編輯區 vs 右側 AI)
-    if (document.getElementById('left-panel') && document.getElementById('right-panel')) {
-      Split(['#left-panel', '#right-panel'], {
-        sizes: [70, 30],
-        minSize: [300, 250],
-        gutterSize: 12,  // 加粗拖曳條，更容易點擊
-        cursor: 'col-resize',
-        elementStyle: (dimension, size, gutterSize) => ({
-          'flex-basis': `calc(${size}% - ${gutterSize}px)`,
-          'flex-grow': '0',   // 禁止自動伸展
-          'flex-shrink': '0'  // 禁止自動收縮
-        }),
-        gutterStyle: (dimension, gutterSize) => ({
-          'flex-basis': `${gutterSize}px`
-        }),
-        onDrag: function () {
-          if (monacoEditor) monacoEditor.layout();
-        },
-        onDragEnd: function () {
-          if (monacoEditor) monacoEditor.layout();
-        }
-      });
-    }
-
-    // 垂直分割 (編輯器 vs 輸出)
-    if (document.getElementById('editor-panel') && document.getElementById('output-panel')) {
-      Split(['#editor-panel', '#output-panel'], {
-        direction: 'vertical',
-        sizes: [75, 25],
-        minSize: [100, 60],
-        gutterSize: 12,  // 加粗拖曳條，更容易點擊
-        cursor: 'row-resize',
-        elementStyle: (dimension, size, gutterSize) => ({
-          'flex-basis': `calc(${size}% - ${gutterSize}px)`,
-          'flex-grow': '0',
-          'flex-shrink': '0'
-        }),
-        gutterStyle: (dimension, gutterSize) => ({
-          'flex-basis': `${gutterSize}px`
-        }),
-        onDrag: function () {
-          if (monacoEditor) monacoEditor.layout();
-        },
-        onDragEnd: function () {
-          if (monacoEditor) monacoEditor.layout();
-        }
-      });
-    }
-  }
-
-  // 監聽視窗縮放，確保編輯器重繪
-  window.addEventListener('resize', () => {
-    if (monacoEditor) monacoEditor.layout();
-  });
 });

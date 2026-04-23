@@ -48,7 +48,9 @@ class QuestionsManager {
    */
   async loadQuestions() {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/api/questions`, {
+      const response = await fetch(`${this.apiBaseUrl}/api1/api/questions`, {
+        method: 'GET',
+        mode: 'cors',
         headers: {
           'ngrok-skip-browser-warning': 'true',
           'User-Agent': 'PythonDiagnosticPlatform'
@@ -81,8 +83,9 @@ class QuestionsManager {
    */
   async refreshQuestions() {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/api/questions/refresh`, {
+      const response = await fetch(`${this.apiBaseUrl}/api1/api/questions/refresh`, {
         method: 'POST',
+        mode: 'cors',
         headers: {
           'ngrok-skip-browser-warning': 'true',
           'User-Agent': 'PythonDiagnosticPlatform'
