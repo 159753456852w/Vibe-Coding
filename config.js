@@ -1,10 +1,9 @@
 // API 配置文件 - 僅使用 Ngrok 模式
 
 const CONFIG = {
-  // API URL 設定
-  // 留空表示使用同源（相對路徑），前端與後端從同一個 Flask 伺服器提供
-  // 如果使用 ngrok，前端也會透過 ngrok 存取，所以同樣使用相對路徑即可
-  API_URL: ''
+  // Ngrok URL（需要手動更新）
+  // 讓前端可以在任何地方開啟，並連回這台電腦的後端
+  API_URL: 'https://karissa-unsiding-graphemically.ngrok-free.dev'
 };
 
 // 如果從 HTML 引入，將配置暴露到全局
